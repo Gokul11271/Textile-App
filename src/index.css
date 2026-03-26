@@ -2,11 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   Google Sans Font Face Declarations
+   ============================================ */
 @font-face {
   font-family: 'Google Sans';
   src: url('./assets/fonts/GoogleSans-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
@@ -14,6 +18,7 @@
   src: url('./assets/fonts/GoogleSans-Italic.ttf') format('truetype');
   font-weight: 400;
   font-style: italic;
+  font-display: swap;
 }
 
 @font-face {
@@ -21,6 +26,7 @@
   src: url('./assets/fonts/GoogleSans-Medium.ttf') format('truetype');
   font-weight: 500;
   font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
@@ -28,6 +34,7 @@
   src: url('./assets/fonts/GoogleSans-MediumItalic.ttf') format('truetype');
   font-weight: 500;
   font-style: italic;
+  font-display: swap;
 }
 
 @font-face {
@@ -35,6 +42,7 @@
   src: url('./assets/fonts/GoogleSans-SemiBold.ttf') format('truetype');
   font-weight: 600;
   font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
@@ -42,6 +50,7 @@
   src: url('./assets/fonts/GoogleSans-SemiBoldItalic.ttf') format('truetype');
   font-weight: 600;
   font-style: italic;
+  font-display: swap;
 }
 
 @font-face {
@@ -49,6 +58,7 @@
   src: url('./assets/fonts/GoogleSans-Bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
@@ -56,31 +66,379 @@
   src: url('./assets/fonts/GoogleSans-BoldItalic.ttf') format('truetype');
   font-weight: 700;
   font-style: italic;
+  font-display: swap;
 }
 
+/* Google Sans Text (17pt optical size variant) */
+@font-face {
+  font-family: 'Google Sans Text';
+  src: url('./assets/fonts/GoogleSans_17pt-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Text';
+  src: url('./assets/fonts/GoogleSans_17pt-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Text';
+  src: url('./assets/fonts/GoogleSans_17pt-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Text';
+  src: url('./assets/fonts/GoogleSans_17pt-MediumItalic.ttf') format('truetype');
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Text';
+  src: url('./assets/fonts/GoogleSans_17pt-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Text';
+  src: url('./assets/fonts/GoogleSans_17pt-SemiBoldItalic.ttf') format('truetype');
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Text';
+  src: url('./assets/fonts/GoogleSans_17pt-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Text';
+  src: url('./assets/fonts/GoogleSans_17pt-BoldItalic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ============================================
+   Material 3 Design Tokens - CSS Variables
+   ============================================ */
 :root {
-  font-family: 'Google Sans', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* Typography System */
+  font-family: 'Google Sans', 'Google Sans Text', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #000000;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* M3 Shape Scale */
+  --m3-shape-xs: 4px;
+  --m3-shape-sm: 8px;
+  --m3-shape-md: 12px;
+  --m3-shape-lg: 16px;
+  --m3-shape-xl: 28px;
+  --m3-shape-full: 9999px;
+
+  /* M3 Elevation */
+  --m3-elevation-1: 0 1px 3px 1px rgba(0,0,0,0.15), 0 1px 2px 0 rgba(0,0,0,0.3);
+  --m3-elevation-2: 0 2px 6px 2px rgba(0,0,0,0.15), 0 1px 2px 0 rgba(0,0,0,0.3);
+  --m3-elevation-3: 0 4px 8px 3px rgba(0,0,0,0.15), 0 1px 3px 0 rgba(0,0,0,0.3);
+
+  /* M3 Motion */
+  --m3-motion-duration-short: 200ms;
+  --m3-motion-duration-medium: 300ms;
+  --m3-motion-duration-long: 500ms;
+  --m3-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --m3-motion-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ============================================
+   M3 Light Theme Color Tokens
+   ============================================ */
+:root {
+  --m3-primary: #1B6EF3;
+  --m3-on-primary: #FFFFFF;
+  --m3-primary-container: #D8E2FF;
+  --m3-on-primary-container: #001A41;
+  --m3-secondary: #565E71;
+  --m3-on-secondary: #FFFFFF;
+  --m3-secondary-container: #DAE2F9;
+  --m3-on-secondary-container: #131C2B;
+  --m3-tertiary: #705575;
+  --m3-on-tertiary: #FFFFFF;
+  --m3-tertiary-container: #FAD8FD;
+  --m3-on-tertiary-container: #29132F;
+  --m3-error: #BA1A1A;
+  --m3-on-error: #FFFFFF;
+  --m3-error-container: #FFDAD6;
+  --m3-on-error-container: #410002;
+  --m3-surface: #F9F9FF;
+  --m3-on-surface: #191C20;
+  --m3-surface-variant: #E0E2EC;
+  --m3-on-surface-variant: #44474E;
+  --m3-surface-container-lowest: #FFFFFF;
+  --m3-surface-container-low: #F3F3FA;
+  --m3-surface-container: #EDEDF4;
+  --m3-surface-container-high: #E7E8EE;
+  --m3-surface-container-highest: #E2E2E9;
+  --m3-outline: #74777F;
+  --m3-outline-variant: #C4C6D0;
+  --m3-inverse-surface: #2E3036;
+  --m3-inverse-on-surface: #F0F0F7;
+
+  color-scheme: light;
+  color: var(--m3-on-surface);
+  background-color: var(--m3-surface);
+}
+
+/* ============================================
+   M3 Dark Theme Color Tokens
+   ============================================ */
+.dark {
+  --m3-primary: #ADC6FF;
+  --m3-on-primary: #002E69;
+  --m3-primary-container: #004494;
+  --m3-on-primary-container: #D8E2FF;
+  --m3-secondary: #BEC6DC;
+  --m3-on-secondary: #283141;
+  --m3-secondary-container: #3E4759;
+  --m3-on-secondary-container: #DAE2F9;
+  --m3-tertiary: #DDB9E0;
+  --m3-on-tertiary: #3F2845;
+  --m3-tertiary-container: #573E5C;
+  --m3-on-tertiary-container: #FAD8FD;
+  --m3-error: #FFB4AB;
+  --m3-on-error: #690005;
+  --m3-error-container: #93000A;
+  --m3-on-error-container: #FFDAD6;
+  --m3-surface: #111318;
+  --m3-on-surface: #E2E2E9;
+  --m3-surface-variant: #44474E;
+  --m3-on-surface-variant: #C4C6D0;
+  --m3-surface-container-lowest: #0C0E13;
+  --m3-surface-container-low: #191C20;
+  --m3-surface-container: #1D2024;
+  --m3-surface-container-high: #282A2F;
+  --m3-surface-container-highest: #33353A;
+  --m3-outline: #8E9099;
+  --m3-outline-variant: #44474E;
+  --m3-inverse-surface: #E2E2E9;
+  --m3-inverse-on-surface: #2E3036;
+
+  color-scheme: dark;
+  color: var(--m3-on-surface);
+  background-color: var(--m3-surface);
+}
+
+/* ============================================
+   Base Reset & Global Styles
+   ============================================ */
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  font-family: 'Google Sans', 'Google Sans Text', system-ui, -apple-system, sans-serif;
+  background-color: var(--m3-surface);
+  color: var(--m3-on-surface);
+  transition: background-color var(--m3-motion-duration-medium) var(--m3-motion-easing-standard),
+              color var(--m3-motion-duration-medium) var(--m3-motion-easing-standard);
 }
 
 #root {
   width: 100%;
+  height: 100%;
+}
+
+/* ============================================
+   M3 Scrollbar
+   ============================================ */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--m3-outline-variant);
+  border-radius: var(--m3-shape-full);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--m3-outline);
+}
+
+/* Global scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--m3-outline-variant);
+  border-radius: var(--m3-shape-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--m3-outline);
+}
+
+/* ============================================
+   M3 Component Layer Utilities
+   ============================================ */
+@layer components {
+  /* M3 Typography Classes */
+  .m3-display-large {
+    font-family: 'Google Sans', sans-serif;
+    font-size: 57px;
+    line-height: 64px;
+    letter-spacing: -0.25px;
+    font-weight: 400;
+  }
+  .m3-display-medium {
+    font-family: 'Google Sans', sans-serif;
+    font-size: 45px;
+    line-height: 52px;
+    font-weight: 400;
+  }
+  .m3-display-small {
+    font-family: 'Google Sans', sans-serif;
+    font-size: 36px;
+    line-height: 44px;
+    font-weight: 400;
+  }
+  .m3-headline-large {
+    font-family: 'Google Sans', sans-serif;
+    font-size: 32px;
+    line-height: 40px;
+    font-weight: 400;
+  }
+  .m3-headline-medium {
+    font-family: 'Google Sans', sans-serif;
+    font-size: 28px;
+    line-height: 36px;
+    font-weight: 400;
+  }
+  .m3-headline-small {
+    font-family: 'Google Sans', sans-serif;
+    font-size: 24px;
+    line-height: 32px;
+    font-weight: 400;
+  }
+  .m3-title-large {
+    font-family: 'Google Sans', sans-serif;
+    font-size: 22px;
+    line-height: 28px;
+    font-weight: 500;
+  }
+  .m3-title-medium {
+    font-family: 'Google Sans Text', 'Google Sans', sans-serif;
+    font-size: 16px;
+    line-height: 24px;
+    letter-spacing: 0.15px;
+    font-weight: 500;
+  }
+  .m3-title-small {
+    font-family: 'Google Sans Text', 'Google Sans', sans-serif;
+    font-size: 14px;
+    line-height: 20px;
+    letter-spacing: 0.1px;
+    font-weight: 500;
+  }
+  .m3-body-large {
+    font-family: 'Google Sans Text', 'Google Sans', sans-serif;
+    font-size: 16px;
+    line-height: 24px;
+    letter-spacing: 0.5px;
+    font-weight: 400;
+  }
+  .m3-body-medium {
+    font-family: 'Google Sans Text', 'Google Sans', sans-serif;
+    font-size: 14px;
+    line-height: 20px;
+    letter-spacing: 0.25px;
+    font-weight: 400;
+  }
+  .m3-body-small {
+    font-family: 'Google Sans Text', 'Google Sans', sans-serif;
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0.4px;
+    font-weight: 400;
+  }
+  .m3-label-large {
+    font-family: 'Google Sans Text', 'Google Sans', sans-serif;
+    font-size: 14px;
+    line-height: 20px;
+    letter-spacing: 0.1px;
+    font-weight: 500;
+  }
+  .m3-label-medium {
+    font-family: 'Google Sans Text', 'Google Sans', sans-serif;
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+  .m3-label-small {
+    font-family: 'Google Sans Text', 'Google Sans', sans-serif;
+    font-size: 11px;
+    line-height: 16px;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+}
+
+/* ============================================
+   M3 Focus & Interactive States
+   ============================================ */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+}
+
+/* Smooth transitions for all interactive elements */
+button, a, input, select, textarea {
+  font-family: inherit;
+  transition: all var(--m3-motion-duration-short) var(--m3-motion-easing-standard);
+}
+
+/* Select styling for dark mode */
+.dark select option {
+  background-color: var(--m3-surface-container-high);
+  color: var(--m3-on-surface);
+}
+
+select option {
+  background-color: var(--m3-surface-container-lowest);
+  color: var(--m3-on-surface);
+}
+
+/* Number input spinner removal */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Trash2, Save, Printer, FileText, Search, User, MapPin, Hash, Package } from 'lucide-react'
+import { Plus, Trash2, Save, Printer, FileText, Search, User, Package, ChevronRight } from 'lucide-react'
 
 export function Billing() {
   const formatDate = (date) => {
@@ -64,7 +64,6 @@ export function Billing() {
 
   useEffect(() => {
     if (window.electron && window.electron.db) {
-      // Load initial data
       window.electron.db.getParties().then(data => setParties(data || []))
       window.electron.db.getAgents().then(data => setAgents(data || []))
       loadStats()
@@ -205,13 +204,11 @@ export function Billing() {
   }
 
   const handlePartySelect = (selection) => {
-    // Try to match the combined format "Customer Name (Short Name)"
     const match = selection.match(/\(([^)]+)\)$/)
     const shortName = match ? match[1] : selection
 
     const party = parties.find(p => p.short_name === shortName)
     if (party) {
-      // Priority: GST > PAN > Aadhaar
       let idNumber = '';
       let idLabel = 'Identification';
 
@@ -264,7 +261,6 @@ export function Billing() {
         baleNumber: item.bale_number
       })));
 
-      // Auto-fill party details from the bill object (if joined) or from the state
       const party = (parties || []).find(p => p.id === oldBill.party_id);
       if (party) {
         let idNumber = '';
@@ -290,7 +286,6 @@ export function Billing() {
           partyIdLabel: idLabel
         }));
       } else if (oldBill.party_name) {
-        // Fallback if the IPC handler returned joined party data
         setBillData(prev => ({
           ...prev,
           partyShortName: oldBill.party_short_name || oldBill.party_name,
@@ -366,7 +361,7 @@ export function Billing() {
       } else {
         console.warn('Database not available. Action was not saved.');
         if (!silent) alert('Database not connected. Your changes were not saved locally.');
-        return true; // Return true to allow flow to continue in mock/dev mode if desired
+        return true;
       }
     } catch (error) {
       console.error(error);
@@ -416,145 +411,159 @@ export function Billing() {
     const saved = await handleSave(true);
     if (!saved) return;
 
-    // Generate Big Print Automatically
     const bigCount = printCopies.big || 1;
     for (let i = 0; i < bigCount; i++) {
       await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big');
     }
 
-    // Increment bill number
     const currentNo = billData.billNumber;
     const nextNo = currentNo.replace(/\d+$/, (n) => (parseInt(n) + 1).toString().padStart(n.length, '0'));
 
     resetForm(nextNo);
   };
 
+  /* M3 Input base style */
+  const inputBase = "w-full rounded-md px-3 py-2 m3-body-medium bg-m3-surface-container-highest border border-m3-outline-variant text-m3-on-surface placeholder:text-m3-on-surface-variant/50 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary/30 transition-all duration-200";
+  const labelBase = "m3-label-medium text-m3-on-surface-variant mb-1 block";
+
   return (
-    <div className="h-[calc(100vh-1rem)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 font-premium-text">
-      {/* Header Actions - Fixed at Top */}
+    <div className="h-[calc(100vh-5rem)] flex flex-col overflow-hidden animate-in fade-in duration-500 font-sans">
+      {/* Header Actions */}
       <div className="flex justify-between items-center mb-4 flex-shrink-0">
         <div>
-          <h1 className="text-xl font-bold  dark:text-white text-black leading-tight">Create New Bill</h1>
-          <p className="text-[10px] dark:text-premium-400 text-gray-500">Professional textile invoicing system.</p>
+          <h1 className="m3-title-large font-display text-m3-on-surface">Create New Bill</h1>
+          <p className="m3-body-small text-m3-on-surface-variant">Professional textile invoicing system</p>
         </div>
-        <div className="flex space-x-2">
-          {/* Action buttons kept relatively same but slightly more compact */}
-          <button onClick={() => resetForm()} className="flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs transition-all border dark:bg-premium-700 dark:hover:bg-premium-600 dark:border-premium-600 dark:text-white bg-gray-50 hover:bg-white border-gray-200 text-gray-700">
-            <Plus size={14} />
+        <div className="flex items-center gap-2">
+          {/* M3 Outlined/Tonal Buttons */}
+          <button onClick={() => resetForm()} className="flex items-center gap-1.5 px-3 py-2 rounded-full m3-label-large border border-m3-outline text-m3-primary hover:bg-m3-primary/8 transition-all">
+            <Plus size={16} />
             <span>New</span>
           </button>
-          <button onClick={handleDelete} className="flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs transition-all border dark:bg-transparent dark:hover:bg-premium-800 dark:border-premium-700 dark:text-premium-400 bg-transparent hover:bg-gray-50 border-gray-100 text-gray-400">
-            <Trash2 size={14} />
+          <button onClick={handleDelete} className="flex items-center gap-1 px-3 py-2 rounded-full m3-label-large border border-m3-outline text-m3-on-surface-variant hover:bg-m3-error/8 hover:text-m3-error hover:border-m3-error/50 transition-all">
+            <Trash2 size={16} />
           </button>
-          <div className="w-px dark:bg-premium-700 bg-gray-200 mx-1"></div>
-          <div className="flex items-center space-x-1 border dark:border-premium-700 rounded-lg px-2 dark:bg-premium-800/30 bg-gray-50/50">
-            <span className="text-[10px] dark:text-premium-500 text-gray-400 font-bold uppercase tracking-tighter">Copies:</span>
+
+          <div className="w-px h-8 bg-m3-outline-variant mx-1"></div>
+
+          {/* Transport Print Group */}
+          <div className="flex items-center gap-1 border border-m3-outline-variant rounded-full px-3 py-1.5 bg-m3-surface-container-low">
+            <span className="m3-label-small text-m3-on-surface-variant">×</span>
             <input
               type="number"
               min="1"
               max="10"
               value={printCopies.transport}
               onChange={e => setPrintCopies(prev => ({ ...prev, transport: parseInt(e.target.value) || 1 }))}
-              className="w-8 bg-transparent text-[10px] font-bold text-center dark:text-white text-black focus:outline-none"
+              className="w-6 bg-transparent m3-label-medium text-center text-m3-on-surface focus:outline-none"
             />
-            <button onClick={() => handlePrint('transport')} className="flex items-center space-x-1 px-2 py-1.5 rounded-lg text-xs transition-all dark:text-premium-400 dark:hover:text-white text-gray-700 hover:text-black">
+            <button onClick={() => handlePrint('transport')} className="flex items-center gap-1 px-2 py-1 rounded-full m3-label-medium text-m3-on-surface-variant hover:text-m3-primary transition-colors">
               <Printer size={14} />
               <span>Transport</span>
             </button>
           </div>
 
-          <div className="flex items-center space-x-1 border dark:border-premium-700 rounded-lg px-2 dark:bg-white/5 bg-black/5 shadow-sm">
-            <span className="text-[10px] dark:text-premium-500 text-gray-400 font-bold uppercase tracking-tighter">Copies:</span>
+          {/* Big Print Group */}
+          <div className="flex items-center gap-1 border border-m3-outline-variant rounded-full px-3 py-1.5 bg-m3-surface-container">
+            <span className="m3-label-small text-m3-on-surface-variant">×</span>
             <input
               type="number"
               min="1"
               max="10"
               value={printCopies.big}
               onChange={e => setPrintCopies(prev => ({ ...prev, big: parseInt(e.target.value) || 1 }))}
-              className="w-8 bg-transparent text-[10px] font-bold text-center dark:text-white text-black focus:outline-none"
+              className="w-6 bg-transparent m3-label-medium text-center text-m3-on-surface focus:outline-none"
             />
-            <button onClick={() => handlePrint('big')} className="flex items-center space-x-1 px-2 py-1.5 rounded-lg text-xs font-bold dark:text-white text-black hover:opacity-80">
+            <button onClick={() => handlePrint('big')} className="flex items-center gap-1 px-2 py-1 rounded-full m3-label-medium font-medium text-m3-on-surface hover:text-m3-primary transition-colors">
               <Printer size={14} />
               <span>Big Print</span>
             </button>
           </div>
-          <button onClick={handleSaveAndGenerate} className="flex items-center space-x-2 px-4 py-1.5 rounded-lg text-xs font-bold border dark:bg-white dark:text-black dark:hover:bg-gray-200 bg-black text-white hover:bg-gray-800 shadow-md transition-all active:scale-95">
-            <FileText size={14} />
+
+          {/* M3 Filled Button */}
+          <button onClick={handleSaveAndGenerate} className="flex items-center gap-2 px-5 py-2.5 rounded-full m3-label-large bg-m3-primary text-m3-on-primary hover:shadow-m3-1 active:scale-[0.98] transition-all">
+            <FileText size={16} />
             <span>Save & Generate</span>
           </button>
-          <button onClick={() => handleSave()} className="flex items-center space-x-1 px-4 py-1.5 rounded-lg text-xs font-bold border dark:bg-premium-800 dark:hover:bg-premium-700 dark:border-premium-700 dark:text-white bg-white border-gray-200 text-black">
-            <Save size={14} />
+          
+          {/* M3 Tonal Button */}
+          <button onClick={() => handleSave()} className="flex items-center gap-1.5 px-4 py-2.5 rounded-full m3-label-large bg-m3-secondary-container text-m3-on-secondary-container hover:shadow-m3-1 transition-all">
+            <Save size={16} />
             <span>Save</span>
           </button>
-          <button onClick={handleUpNext} className="flex items-center space-x-1 px-4 py-1.5 rounded-lg text-xs font-bold border uppercase tracking-tighter dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/20 dark:text-white bg-black/5 border-black/5 text-black">
+
+          <button onClick={handleUpNext} className="flex items-center gap-1 px-4 py-2.5 rounded-full m3-label-large bg-m3-tertiary-container text-m3-on-tertiary-container hover:shadow-m3-1 transition-all">
             <span>Next Bill</span>
+            <ChevronRight size={16} />
           </button>
         </div>
       </div>
 
-      {/* Main Content Area - Scrollable */}
+      {/* Main Content - Scrollable */}
       <div className="flex-1 overflow-y-auto space-y-4 pr-1 custom-scrollbar">
-        {/* Summary Info Bar - Compact */}
+        {/* Stats Summary Bar */}
         <div className="grid grid-cols-4 gap-3 flex-shrink-0">
           {[
-            { label: 'Last Bill No', value: stats.lastBillNo, color: 'dark:text-premium-400 text-gray-500' },
-            { label: 'Total Bills', value: stats.totalBills, color: 'dark:text-white text-black' },
-            { label: 'Total Bales', value: stats.totalBales, color: 'dark:text-white text-black' },
-            { label: 'Ready for Print', value: 'Auto Generated', color: 'dark:text-premium-400 text-gray-400' }
+            { label: 'Last Bill No', value: stats.lastBillNo },
+            { label: 'Total Bills', value: stats.totalBills },
+            { label: 'Total Bales', value: stats.totalBales },
+            { label: 'Ready for Print', value: 'Auto Generated' }
           ].map((s, i) => (
-            <div key={i} className="rounded-lg p-2 flex flex-col items-center justify-center border dark:bg-premium-800/20 dark:border-premium-700/30 bg-white border-gray-100">
-              <span className="text-[8px] uppercase font-bold tracking-widest dark:text-premium-500 text-gray-400">{s.label}</span>
-              <span className={`text-xs font-bold font-premium-mono ${s.color}`}>{s.value}</span>
+            <div key={i} className="rounded-lg px-3 py-2.5 flex flex-col items-center justify-center bg-m3-surface-container-low border border-m3-outline-variant">
+              <span className="m3-label-small text-m3-on-surface-variant">{s.label}</span>
+              <span className="m3-label-large font-mono text-m3-on-surface">{s.value}</span>
             </div>
           ))}
         </div>
 
-        {/* Bill Metadata Grid - Flexible */}
+        {/* Bill Metadata */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="p-4 rounded-xl border-2 space-y-3 dark:bg-premium-800/80 dark:border-premium-700/50 bg-white border-gray-100 shadow-lg backdrop-blur-sm">
-            <h3 className="text-[10px] font-black uppercase tracking-widest dark:text-premium-400 text-gray-400 border-b dark:border-premium-700/50 pb-2 mb-4">Invoice Metadata</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
-              <div className="flex flex-col space-y-1">
-                <label className="text-[9px] uppercase font-bold ml-1 dark:text-premium-400 text-gray-400">Bill Number</label>
-                <div className="flex space-x-1">
+          {/* Invoice Card */}
+          <div className="p-5 rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest space-y-4">
+            <h3 className="m3-title-small text-m3-on-surface border-b border-m3-outline-variant pb-3">Invoice Metadata</h3>
+            <div className="space-y-3">
+              <div>
+                <label className={labelBase}>Bill Number</label>
+                <div className="flex gap-1.5">
                   <input
                     type="text"
                     ref={billNoRef}
                     value={billData.billNumber}
                     onChange={e => setBillData({ ...billData, billNumber: e.target.value })}
                     onKeyDown={e => e.key === 'Enter' && dateRef.current?.focus()}
-                    className="flex-1 rounded-lg px-3 py-1.5 text-xs focus:outline-none dark:bg-premium-900 dark:border-premium-700 dark:text-white bg-gray-50 border-gray-100 font-premium-mono"
+                    className={`${inputBase} font-mono`}
                     placeholder="DT-000"
                   />
-                  <button onClick={handleQuickFill} className="p-1.5 rounded-lg dark:bg-premium-700 dark:text-premium-400 bg-gray-100 text-gray-500">
-                    <Search size={14} />
+                  <button onClick={handleQuickFill} className="p-2.5 rounded-md bg-m3-surface-container-high text-m3-on-surface-variant hover:bg-m3-primary-container hover:text-m3-on-primary-container transition-colors">
+                    <Search size={16} />
                   </button>
                 </div>
               </div>
-              <div className="flex flex-col space-y-1">
-                <label className="text-[9px] uppercase font-bold ml-1 dark:text-premium-400 text-gray-400">Date</label>
+              <div>
+                <label className={labelBase}>Date</label>
                 <input
                   type="text"
                   ref={dateRef}
                   value={billData.date}
                   onChange={e => setBillData({ ...billData, date: e.target.value.toUpperCase() })}
                   onKeyDown={e => e.key === 'Enter' && partyNameRef.current?.focus()}
-                  className="rounded-lg px-3 py-1.5 text-xs focus:outline-none dark:bg-premium-900 dark:border-premium-700 dark:text-premium-100 bg-gray-50 border-gray-100 font-premium-mono"
+                  className={`${inputBase} font-mono`}
                   placeholder="DD-MMM-YYYY"
                 />
               </div>
             </div>
           </div>
 
-          <div className="lg:col-span-2 p-4 rounded-xl border-2 space-y-3 dark:bg-premium-800/80 dark:border-premium-700/50 bg-white border-gray-100 shadow-lg backdrop-blur-sm">
-            <div className="flex justify-between items-center border-b dark:border-premium-700/50 pb-2 mb-4">
-              <h3 className="text-[10px] font-black uppercase tracking-widest dark:text-premium-400 text-gray-400">Recipient Details</h3>
-              <div className="flex items-center space-x-2 text-[9px] dark:text-premium-400 text-gray-500 bg-black/5 dark:bg-white/5 px-2 py-1 rounded-md">
-                <label className="uppercase font-black text-[8px] opacity-60">Agent:</label>
+          {/* Recipient Card */}
+          <div className="lg:col-span-2 p-5 rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest space-y-4">
+            <div className="flex justify-between items-center border-b border-m3-outline-variant pb-3">
+              <h3 className="m3-title-small text-m3-on-surface">Recipient Details</h3>
+              <div className="flex items-center gap-2 bg-m3-surface-container px-3 py-1.5 rounded-full">
+                <span className="m3-label-small text-m3-on-surface-variant">Agent:</span>
                 <select
                   value={billData.agentId}
                   onChange={e => setBillData({ ...billData, agentId: e.target.value })}
-                  className="bg-transparent focus:outline-none dark:text-white text-black font-bold"
+                  className="bg-transparent focus:outline-none m3-label-medium text-m3-on-surface cursor-pointer"
                 >
                   <option value="">None</option>
                   {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -563,10 +572,10 @@ export function Billing() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-3">
-                <div className="flex flex-col space-y-1">
-                  <label className="text-[9px] uppercase font-bold ml-1 dark:text-premium-400 text-gray-400">Party Name</label>
+                <div>
+                  <label className={labelBase}>Party Name</label>
                   <div className="relative">
-                    <span className="absolute left-2.5 top-2 dark:text-premium-500 text-gray-300"><User size={12} /></span>
+                    <span className="absolute left-3 top-2.5 text-m3-on-surface-variant"><User size={14} /></span>
                     <input
                       type="text"
                       ref={partyNameRef}
@@ -582,6 +591,7 @@ export function Billing() {
                         } else if (e.key === 'ArrowUp') {
                           e.preventDefault();
                           if (parties.length === 0) return;
+                          const newIndex = partyIndex <= 0 ? parties.length - 1 : partyIndex - 1;
                           setPartyIndex(newIndex);
                           handlePartySelect(parties[newIndex].short_name);
                         } else if (e.key === 'ArrowDown') {
@@ -592,7 +602,7 @@ export function Billing() {
                           handlePartySelect(parties[newIndex].short_name);
                         }
                       }}
-                      className="w-full rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none dark:bg-premium-900 dark:border-premium-700 dark:text-white bg-gray-50 border-gray-100"
+                      className={`${inputBase} pl-9`}
                       placeholder="Search Party..."
                       list="parties-list"
                     />
@@ -601,23 +611,23 @@ export function Billing() {
                     </datalist>
                   </div>
                 </div>
-                <div className="flex flex-col space-y-1">
-                  <label className="text-[9px] uppercase font-bold ml-1 dark:text-premium-400 text-gray-400">{billData.partyIdLabel || 'Identification'}</label>
+                <div>
+                  <label className={labelBase}>{billData.partyIdLabel || 'Identification'}</label>
                   <input
                     type="text"
                     readOnly
                     value={billData.partyGst}
-                    className="w-full rounded-lg px-3 py-1.5 text-xs dark:bg-premium-900/50 dark:border-premium-700/50 dark:text-premium-400 bg-gray-50/50 border-gray-100"
+                    className={`${inputBase} cursor-not-allowed opacity-70 font-mono`}
                     placeholder="Auto-filled"
                   />
                 </div>
               </div>
-              <div className="flex flex-col space-y-1">
-                <label className="text-[9px] uppercase font-bold ml-1 dark:text-premium-400 text-gray-400">Address</label>
+              <div>
+                <label className={labelBase}>Address</label>
                 <textarea
                   readOnly
                   value={billData.partyAddress}
-                  className="w-full flex-1 min-h-[70px] rounded-lg px-3 py-1.5 text-xs cursor-not-allowed resize-none dark:bg-premium-900/50 dark:border-premium-700/50 dark:text-premium-400 bg-gray-50/50 border-gray-100"
+                  className={`${inputBase} min-h-[88px] cursor-not-allowed opacity-70 resize-none`}
                   placeholder="Party address..."
                 />
               </div>
@@ -625,52 +635,52 @@ export function Billing() {
           </div>
         </div>
 
-        {/* Product Section - Internally Scrollable if needed */}
-        <div className="rounded-xl border-2 overflow-hidden dark:bg-premium-800/80 dark:border-premium-700/50 bg-white border-gray-100 shadow-lg backdrop-blur-sm flex flex-col">
-          <div className="p-4 border-b-2 flex justify-between items-center dark:bg-premium-700/30 dark:border-premium-700/50 bg-gray-50/50 border-gray-100">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 rounded-lg dark:bg-premium-700/50 bg-white shadow-inner">
-                <Package size={16} className="dark:text-white text-black" />
+        {/* Line Items - M3 Card */}
+        <div className="rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest overflow-hidden flex flex-col">
+          <div className="px-5 py-3 border-b border-m3-outline-variant flex justify-between items-center bg-m3-surface-container-low">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-m3-primary-container text-m3-on-primary-container">
+                <Package size={16} />
               </div>
               <div>
-                <span className="text-[10px] font-black uppercase tracking-widest dark:text-white text-black block">Line Items</span>
-                <span className="text-[8px] dark:text-premium-500 text-gray-400 uppercase font-bold">HSN Code 6304</span>
+                <span className="m3-title-small text-m3-on-surface block">Line Items</span>
+                <span className="m3-label-small text-m3-on-surface-variant">HSN Code 6304</span>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={billData.isBaleEnabled}
                   onChange={e => setBillData({ ...billData, isBaleEnabled: e.target.checked })}
                   id="bale-enable"
-                  className="w-3.5 h-3.5 rounded dark:bg-premium-900 bg-white"
+                  className="w-4 h-4 rounded accent-m3-primary"
                 />
-                <label htmlFor="bale-enable" className="text-[10px] cursor-pointer dark:text-premium-500 text-gray-500">Bale No.</label>
-              </div>
-              <button onClick={addItem} className="flex items-center space-x-1 text-[10px] py-1 px-2 rounded-lg font-bold dark:bg-white dark:text-black bg-black text-white">
-                <Plus size={12} />
+                <span className="m3-label-medium text-m3-on-surface-variant">Bale No.</span>
+              </label>
+              <button onClick={addItem} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full m3-label-medium bg-m3-primary text-m3-on-primary hover:shadow-m3-1 transition-all">
+                <Plus size={14} />
                 <span>Add Row</span>
               </button>
             </div>
           </div>
 
           <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
-            <table className="w-full text-left text-xs">
-              <thead className="text-[9px] uppercase border-b sticky top-0 dark:bg-premium-800 dark:text-premium-500 dark:border-premium-700 bg-white text-gray-400 border-gray-50 z-10">
+            <table className="w-full text-left">
+              <thead className="sticky top-0 z-10 bg-m3-surface-container border-b border-m3-outline-variant">
                 <tr>
-                  <th className="px-4 py-2 font-bold w-20">Size</th>
-                  <th className="px-4 py-2 font-bold">Product Name</th>
-                  <th className="px-4 py-2 font-bold w-20">Qty</th>
-                  <th className="px-4 py-2 font-bold w-28">Rate</th>
-                  {billData.isBaleEnabled && <th className="px-4 py-2 font-bold w-24">Bale</th>}
-                  <th className="px-4 py-2 font-bold w-32">Amount</th>
-                  <th className="px-4 py-2 w-10"></th>
+                  <th className="px-4 py-2.5 m3-label-medium text-m3-on-surface-variant w-20">Size</th>
+                  <th className="px-4 py-2.5 m3-label-medium text-m3-on-surface-variant">Product Name</th>
+                  <th className="px-4 py-2.5 m3-label-medium text-m3-on-surface-variant w-20">Qty</th>
+                  <th className="px-4 py-2.5 m3-label-medium text-m3-on-surface-variant w-28">Rate</th>
+                  {billData.isBaleEnabled && <th className="px-4 py-2.5 m3-label-medium text-m3-on-surface-variant w-24">Bale</th>}
+                  <th className="px-4 py-2.5 m3-label-medium text-m3-on-surface-variant w-32">Amount</th>
+                  <th className="px-4 py-2.5 w-10"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y dark:divide-premium-700/50 divide-gray-50 font-medium">
+              <tbody className="divide-y divide-m3-outline-variant/50">
                 {items.map((item, idx) => (
-                  <tr key={item.id} className="dark:hover:bg-premium-700/10 hover:bg-gray-50/50">
+                  <tr key={item.id} className="hover:bg-m3-surface-container-low/50 transition-colors">
                     <td className="px-4 py-1.5">
                       <input
                         type="text"
@@ -678,7 +688,7 @@ export function Billing() {
                         value={item.size}
                         onChange={e => handleItemChange(item.id, 'size', e.target.value)}
                         onKeyDown={e => handleKeyDown(e, idx)}
-                        className="w-full bg-transparent border-none focus:outline-none dark:text-premium-100 text-black"
+                        className="w-full bg-transparent border-none focus:outline-none m3-body-medium text-m3-on-surface"
                         placeholder="Size"
                       />
                     </td>
@@ -688,7 +698,7 @@ export function Billing() {
                         value={item.productName}
                         onChange={e => handleItemChange(item.id, 'productName', e.target.value)}
                         onKeyDown={e => handleKeyDown(e, idx)}
-                        className="w-full bg-transparent border-none focus:outline-none dark:text-premium-100 text-black"
+                        className="w-full bg-transparent border-none focus:outline-none m3-body-medium text-m3-on-surface"
                         placeholder="Item name"
                       />
                     </td>
@@ -698,7 +708,7 @@ export function Billing() {
                         value={item.quantity}
                         onChange={e => handleItemChange(item.id, 'quantity', e.target.value)}
                         onKeyDown={e => handleKeyDown(e, idx)}
-                        className="w-full bg-transparent border-none focus:outline-none font-premium-mono dark:text-premium-100 text-black"
+                        className="w-full bg-transparent border-none focus:outline-none font-mono m3-body-medium text-m3-on-surface"
                       />
                     </td>
                     <td className="px-4 py-1.5">
@@ -707,7 +717,7 @@ export function Billing() {
                         value={item.rate}
                         onChange={e => handleItemChange(item.id, 'rate', e.target.value)}
                         onKeyDown={e => handleKeyDown(e, idx)}
-                        className="w-full bg-transparent border-none focus:outline-none font-premium-mono dark:text-premium-100 text-black"
+                        className="w-full bg-transparent border-none focus:outline-none font-mono m3-body-medium text-m3-on-surface"
                       />
                     </td>
                     {billData.isBaleEnabled && (
@@ -717,16 +727,16 @@ export function Billing() {
                           value={item.baleNumber}
                           onChange={e => handleItemChange(item.id, 'baleNumber', e.target.value)}
                           onKeyDown={e => handleKeyDown(e, idx)}
-                          className="w-full bg-transparent border-none focus:outline-none font-premium-mono dark:text-premium-100 text-black"
+                          className="w-full bg-transparent border-none focus:outline-none font-mono m3-body-medium text-m3-on-surface"
                         />
                       </td>
                     )}
-                    <td className="px-4 py-1.5 font-bold font-premium-mono dark:text-premium-100 text-black">
+                    <td className="px-4 py-1.5 font-mono m3-label-large text-m3-on-surface">
                       ₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-1.5 text-right">
-                      <button onClick={() => removeItem(item.id)} className="dark:text-premium-600 dark:hover:text-red-400 text-gray-300">
-                        <Trash2 size={12} />
+                      <button onClick={() => removeItem(item.id)} className="text-m3-on-surface-variant hover:text-m3-error transition-colors p-1 rounded-full hover:bg-m3-error-container/30">
+                        <Trash2 size={14} />
                       </button>
                     </td>
                   </tr>
@@ -736,42 +746,47 @@ export function Billing() {
           </div>
         </div>
 
-        {/* Footer Panel - Grid for Logistics & Calculations */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl border space-y-3 dark:bg-premium-800/50 dark:border-premium-700 bg-white border-gray-100">
-            <h3 className="text-[10px] font-bold uppercase tracking-wider dark:text-premium-500 text-gray-400">Logistics</h3>
+        {/* Footer - Logistics & Calculations */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4">
+          {/* Logistics Card */}
+          <div className="p-5 rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest space-y-4">
+            <h3 className="m3-title-small text-m3-on-surface">Logistics</h3>
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col space-y-1">
-                <label className="text-[9px] uppercase font-bold ml-1 dark:text-premium-400 text-gray-400">LR Number</label>
+              <div>
+                <label className={labelBase}>LR Number</label>
                 <input
                   type="text"
                   value={billData.lrNumber}
                   onChange={e => setBillData({ ...billData, lrNumber: e.target.value })}
-                  className="rounded-lg px-3 py-1.5 text-xs focus:outline-none dark:bg-premium-900 dark:border-premium-700 bg-gray-50 border-gray-100"
+                  className={`${inputBase} font-mono`}
                   placeholder="LR-0000"
                 />
               </div>
-              <div className="flex flex-col space-y-1">
-                <label className="text-[9px] uppercase font-bold ml-1 dark:text-premium-400 text-gray-400">Lorry Office</label>
+              <div>
+                <label className={labelBase}>Lorry Office</label>
                 <input
                   type="text"
                   value={billData.lorryOffice}
                   onChange={e => setBillData({ ...billData, lorryOffice: e.target.value })}
-                  className="rounded-lg px-3 py-1.5 text-xs focus:outline-none dark:bg-premium-900 dark:border-premium-700 bg-gray-50 border-gray-100"
+                  className={inputBase}
                   placeholder="Transport"
                 />
               </div>
             </div>
-            {/* Compact Bale System inside Logistics area or below */}
-            <div className="mt-3 pt-3 border-t dark:border-premium-700/50 border-gray-50">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[9px] font-bold uppercase dark:text-premium-500 text-gray-400">Bale Tracking</span>
-                <input
-                  type="checkbox"
-                  checked={billData.isBaleSyncEnabled}
-                  onChange={e => setBillData({ ...billData, isBaleSyncEnabled: e.target.checked })}
-                  className="w-3 h-3 rounded"
-                />
+
+            {/* Bale Tracking */}
+            <div className="pt-3 border-t border-m3-outline-variant">
+              <div className="flex items-center justify-between mb-3">
+                <span className="m3-label-medium text-m3-on-surface-variant">Bale Tracking</span>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={billData.isBaleSyncEnabled}
+                    onChange={e => setBillData({ ...billData, isBaleSyncEnabled: e.target.checked })}
+                    className="w-4 h-4 rounded accent-m3-primary"
+                  />
+                  <span className="m3-label-small text-m3-on-surface-variant">Sync</span>
+                </label>
               </div>
               <div className="grid grid-cols-8 gap-1.5">
                 {billData.baleNumbers.map((num, idx) => (
@@ -784,57 +799,60 @@ export function Billing() {
                       newBales[idx] = e.target.value
                       setBillData({ ...billData, baleNumbers: newBales })
                     }}
-                    className="w-full text-[10px] py-1 text-center rounded bg-gray-50 dark:bg-premium-900 border-none focus:ring-1 ring-white/10 dark:text-premium-100 font-premium-mono"
-                    placeholder="-"
+                    className="w-full m3-label-medium py-1.5 text-center rounded-md bg-m3-surface-container-high border border-m3-outline-variant/50 text-m3-on-surface font-mono focus:outline-none focus:border-m3-primary"
+                    placeholder="—"
                   />
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="p-5 rounded-xl border dark:bg-premium-800 dark:border-premium-600 bg-[#0e0e0e] border-[#1a1a1a] shadow-xl">
-            <div className="flex justify-between items-center text-[10px] uppercase font-bold text-[#666]">
-              <span>Subtotal</span>
-              <span className="font-premium-mono text-white">₹{billData.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          {/* Calculation Card */}
+          <div className="p-5 rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest space-y-3">
+            <h3 className="m3-title-small text-m3-on-surface border-b border-m3-outline-variant pb-3">Summary</h3>
+            
+            <div className="flex justify-between items-center">
+              <span className="m3-label-medium text-m3-on-surface-variant">Subtotal</span>
+              <span className="m3-label-large font-mono text-m3-on-surface">₹{billData.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
 
-            <div className="flex justify-between items-center mt-3 text-[10px] font-bold">
-              <div className="flex items-center space-x-2">
-                <span className="text-[#666]">Disc %</span>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className="m3-label-medium text-m3-on-surface-variant">Disc %</span>
                 <input
                   type="number"
                   value={billData.discountPercent}
                   onChange={e => handlePercentDiscount(Number(e.target.value))}
-                  className="w-10 rounded-md px-1.5 py-0.5 text-[10px] dark:bg-premium-900 bg-white/5 text-white font-premium-mono"
+                  className="w-12 rounded-md px-1.5 py-1 m3-label-medium bg-m3-surface-container-highest border border-m3-outline-variant text-m3-on-surface font-mono text-center focus:outline-none focus:border-m3-primary"
                 />
-                <span className="text-[#666]">₹</span>
+                <span className="m3-label-medium text-m3-on-surface-variant">₹</span>
                 <input
                   type="number"
                   value={billData.discountAmount}
                   onChange={e => handleManualDiscount(Number(e.target.value))}
-                  className="w-16 rounded-md px-1.5 py-0.5 text-[10px] dark:bg-premium-900 bg-white/5 text-white font-premium-mono"
+                  className="w-20 rounded-md px-1.5 py-1 m3-label-medium bg-m3-surface-container-highest border border-m3-outline-variant text-m3-on-surface font-mono text-center focus:outline-none focus:border-m3-primary"
                 />
               </div>
-              <span className="font-premium-mono text-red-400">-₹{billData.discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              <span className="m3-label-large font-mono text-m3-error">-₹{billData.discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-white/5 flex justify-between items-center">
-              <div className="flex items-center space-x-3">
+            <div className="pt-3 border-t border-m3-outline-variant flex justify-between items-center">
+              <div className="flex items-center gap-3">
                 <button
                   onClick={() => {
                     const newBillData = { ...billData, isInterState: !billData.isInterState }
                     setBillData(newBillData)
                     updateCalculations(items, newBillData)
                   }}
-                  className={`px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-widest border transition-all ${!billData.isInterState
-                    ? 'bg-white text-black border-white'
-                    : 'bg-white/5 text-[#666] border-white/10'
+                  className={`px-3 py-1 rounded-full m3-label-small transition-all ${!billData.isInterState
+                    ? 'bg-m3-primary text-m3-on-primary'
+                    : 'bg-m3-surface-container-high text-m3-on-surface-variant border border-m3-outline-variant'
                     }`}
                 >
                   {!billData.isInterState ? 'Local' : 'Inter-State'}
                 </button>
-                <div className="flex items-center space-x-1">
-                  <span className="text-[8px] uppercase font-bold text-[#444]">GST %</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="m3-label-small text-m3-on-surface-variant">GST %</span>
                   <input
                     type="number"
                     value={billData.taxRate}
@@ -844,45 +862,27 @@ export function Billing() {
                       setBillData(newBillData)
                       updateCalculations(items, newBillData)
                     }}
-                    className="w-8 rounded-md px-1 py-0.5 text-[10px] dark:bg-premium-900 bg-white/10 text-white font-premium-mono"
+                    className="w-10 rounded-md px-1 py-1 m3-label-medium bg-m3-surface-container-highest border border-m3-outline-variant text-m3-on-surface font-mono text-center focus:outline-none focus:border-m3-primary"
                   />
                 </div>
               </div>
-              <div className="text-[10px] font-premium-mono text-white/50">
+              <span className="m3-label-large font-mono text-m3-on-surface-variant">
                 +₹{billData.taxAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </div>
+              </span>
             </div>
 
-            <div className="mt-4 flex justify-between items-baseline border-t border-white/10 pt-3">
+            <div className="pt-3 border-t border-m3-outline-variant flex justify-between items-baseline">
               <div className="flex flex-col">
-                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#666]">Total Payable</span>
-                <span className="text-xl font-black text-white italic leading-none font-premium-mono">₹{billData.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                <span className="m3-label-small text-m3-on-surface-variant tracking-wider">Total Payable</span>
+                <span className="m3-headline-small font-display font-medium font-mono text-m3-on-surface mt-1">₹{billData.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
-              <div className="text-[8px] uppercase text-[#444] font-bold tracking-tighter">
+              <span className="m3-label-small text-m3-on-surface-variant">
                 {billData.isInterState ? 'IGST Applied' : 'CGST + SGST Applied'}
-              </div>
+              </span>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Custom Global Scrollbar Style */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(128, 128, 128, 0.2);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(128, 128, 128, 0.4);
-        }
-      `}} />
     </div>
   )
 }

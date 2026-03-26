@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { TrendingUp, FileText, ShoppingBag, Archive } from 'lucide-react'
+import { TrendingUp, FileText, Archive, ArrowRight } from 'lucide-react'
 
 export function Dashboard() {
   const [stats, setStats] = useState({
@@ -31,28 +31,29 @@ export function Dashboard() {
   }, [])
 
   const statCards = [
-    { label: 'Total Bills', value: stats.totalBills, icon: FileText, darkBg: 'bg-white/5', lightBg: 'bg-gray-50', darkText: 'text-white', lightText: 'text-black' },
-    { label: 'Last Bill No', value: stats.lastBillNo, icon: TrendingUp, darkBg: 'bg-white/10', lightBg: 'bg-gray-100', darkText: 'text-white', lightText: 'text-black' },
-    { label: 'Bale Count', value: stats.totalBales, icon: Archive, darkBg: 'bg-premium-700', lightBg: 'bg-black', darkText: 'text-white', lightText: 'text-white' },
+    { label: 'Total Bills', value: stats.totalBills, icon: FileText, accent: 'bg-m3-primary-container text-m3-on-primary-container' },
+    { label: 'Last Bill No', value: stats.lastBillNo, icon: TrendingUp, accent: 'bg-m3-secondary-container text-m3-on-secondary-container' },
+    { label: 'Bale Count', value: stats.totalBales, icon: Archive, accent: 'bg-m3-tertiary-container text-m3-on-tertiary-container' },
   ]
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 font-sans">
+      {/* Welcome Header */}
       <div>
-        <h1 className="text-2xl font-bold  dark:text-white text-black">Welcome back,</h1>
-        <p className="mt-1 dark:text-premium-400 text-gray-500">Here is the quick overview for your textile shop today.</p>
+        <h1 className="m3-headline-medium font-display text-m3-on-surface">Welcome back</h1>
+        <p className="m3-body-large text-m3-on-surface-variant mt-1">Here's a quick overview for your textile shop today.</p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* M3 Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {statCards.map((stat, idx) => (
-          <div key={idx} className="p-6 rounded-2xl border transition-all duration-300 group cursor-default dark:bg-premium-800/50 dark:border-premium-700 bg-white border-gray-100 shadow-[0_2px_4px_rgba(0,0,0,0.01)] hover:shadow-md dark:hover:border-premium-500">
+          <div key={idx} className="p-5 rounded-xl border border-m3-outline-variant bg-m3-surface-container-low transition-all duration-200 ease-m3-standard hover:shadow-m3-1 group cursor-default">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm font-medium dark:text-premium-400 text-gray-400">{stat.label}</p>
-                <h3 className="text-2xl font-bold mt-1 dark:text-white text-black">{stat.value}</h3>
+                <p className="m3-label-medium text-m3-on-surface-variant">{stat.label}</p>
+                <h3 className="m3-headline-small font-display font-medium mt-1 text-m3-on-surface">{stat.value}</h3>
               </div>
-              <div className={`p-3 rounded-xl transition-transform group-hover:scale-110 ${stat.darkBg} ${stat.lightBg} ${stat.darkText} ${stat.lightText}`}>
+              <div className={`p-3 rounded-xl transition-transform duration-200 group-hover:scale-105 ${stat.accent}`}>
                 <stat.icon size={20} />
               </div>
             </div>
@@ -60,43 +61,49 @@ export function Dashboard() {
         ))}
       </div>
 
-      {/* Recent Activity */}
-      <div className="rounded-2xl border overflow-hidden transition-all duration-300 dark:bg-premium-800/50 dark:border-premium-700 bg-white border-gray-100 shadow-sm">
-        <div className="p-6 border-b flex justify-between items-center dark:border-premium-700 border-gray-50">
-          <h3 className="font-bold dark:text-white text-black">Recent Bills</h3>
-          <button className="text-xs font-bold uppercase tracking-wider dark:text-premium-400 text-gray-400 hover:dark:text-white hover:text-black transition-colors">View All</button>
+      {/* Recent Activity - M3 Card */}
+      <div className="rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest overflow-hidden">
+        <div className="px-6 py-4 border-b border-m3-outline-variant flex justify-between items-center bg-m3-surface-container-low">
+          <h3 className="m3-title-medium text-m3-on-surface">Recent Bills</h3>
+          <button className="m3-label-large text-m3-primary flex items-center gap-1 hover:underline underline-offset-4">
+            View All
+            <ArrowRight size={16} />
+          </button>
         </div>
         
         <div className="overflow-x-auto min-h-[200px]">
           {loading ? (
-             <div className="p-12 text-center text-gray-400 text-sm">Loading recent bills...</div>
+             <div className="p-12 text-center">
+              <div className="w-8 h-8 border-2 border-m3-primary/30 border-t-m3-primary rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="m3-body-medium text-m3-on-surface-variant">Loading recent bills...</p>
+            </div>
           ) : recentBills.length > 0 ? (
             <table className="w-full text-left border-collapse">
-              <thead className="text-[10px] uppercase tracking-wider dark:text-premium-500 text-gray-400 border-b dark:border-premium-700/50 border-gray-50">
-                <tr>
-                  <th className="px-6 py-4 font-bold">Bill No</th>
-                  <th className="px-6 py-4 font-bold">Date</th>
-                  <th className="px-6 py-4 font-bold">Party Name</th>
-                  <th className="px-6 py-4 font-bold text-right">Amount</th>
+              <thead>
+                <tr className="border-b border-m3-outline-variant bg-m3-surface-container-low">
+                  <th className="px-6 py-3 m3-label-medium text-m3-on-surface-variant">Bill No</th>
+                  <th className="px-6 py-3 m3-label-medium text-m3-on-surface-variant">Date</th>
+                  <th className="px-6 py-3 m3-label-medium text-m3-on-surface-variant">Party Name</th>
+                  <th className="px-6 py-3 m3-label-medium text-m3-on-surface-variant text-right">Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y dark:divide-premium-700/30 divide-gray-50">
+              <tbody className="divide-y divide-m3-outline-variant">
                 {recentBills.map((bill) => (
-                  <tr key={bill.id} className="dark:hover:bg-premium-400/5 hover:bg-gray-50/50 transition-colors">
+                  <tr key={bill.id} className="hover:bg-m3-surface-container-low transition-colors duration-150">
                     <td className="px-6 py-4">
-                      <span className="text-sm font-bold dark:text-white text-black font-premium-mono">
+                      <span className="m3-label-large font-mono text-m3-on-surface">
                          {bill.bill_number}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm dark:text-premium-400 text-gray-500">{bill.date}</td>
+                    <td className="px-6 py-4 m3-body-medium text-m3-on-surface-variant">{bill.date}</td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
-                        <span className="text-sm font-semibold dark:text-white text-black">{bill.party_name || 'N/A'}</span>
-                        <span className="text-[10px] dark:text-premium-500 text-gray-400">{bill.party_short_name}</span>
+                        <span className="m3-body-medium font-medium text-m3-on-surface">{bill.party_name || 'N/A'}</span>
+                        <span className="m3-label-small text-m3-on-surface-variant">{bill.party_short_name}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <span className="text-sm font-black dark:text-white text-black font-premium-mono">
+                      <span className="m3-label-large font-mono text-m3-on-surface">
                         ₹{bill.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </span>
                     </td>
@@ -105,11 +112,11 @@ export function Dashboard() {
               </tbody>
             </table>
           ) : (
-            <div className="p-12 text-center">
-              <div className="inline-flex p-4 rounded-full mb-4 dark:bg-premium-700/50 dark:text-premium-500 bg-gray-50 text-gray-300">
+            <div className="p-16 text-center">
+              <div className="inline-flex p-5 rounded-full mb-4 bg-m3-surface-container-highest text-m3-on-surface-variant">
                 <FileText size={32} />
               </div>
-              <p className="text-sm dark:text-premium-400 text-gray-400 font-medium">No recent activity found. Start by creating a new bill!</p>
+              <p className="m3-body-large text-m3-on-surface-variant">No recent activity found. Start by creating a new bill!</p>
             </div>
           )}
         </div>
