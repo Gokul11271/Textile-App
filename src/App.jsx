@@ -4,6 +4,7 @@ import { Dashboard } from './components/Dashboard'
 import { Billing } from './components/Billing'
 import Parties from './components/Parties'
 import { Reports } from './components/Reports'
+import Settings from './components/Settings'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard')
@@ -32,6 +33,7 @@ function App() {
         {currentPage === 'billing' && <Billing />}
         {currentPage === 'parties' && <Parties />}
         {currentPage === 'reports' && <Reports theme={theme} />}
+        {currentPage === 'settings' && <Settings />}
       </Layout>
     </div>
   )

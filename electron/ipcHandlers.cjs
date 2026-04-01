@@ -4,7 +4,57 @@ const fs = require('fs');
 const path = require('path');
 
 function setupIpcHandlers() {
-  const getBillHtml = (bill, items, type = 'big') => {
+  const numberToWords = (num) => {
+    if (!num || num === 0) return 'Zero Only';
+    const a = ['','One ','Two ','Three ','Four ', 'Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
+    const b = ['', '', 'Twenty','Thirty','Forty','Fifty', 'Sixty','Seventy','Eighty','Ninety'];
+    const convertBlock = (n) => {
+      let str = '';
+      if (n > 99) { str += a[Math.floor(n / 100)] + 'Hundred '; n = n % 100; }
+      if (n > 19) { str += b[Math.floor(n / 10)] + ' '; if (n % 10 > 0) str += a[n % 10]; } 
+      else if (n > 0) { str += a[n]; }
+      return str;
+    };
+    const integerPart = Math.floor(Math.round(num));
+    let words = '';
+    if (integerPart > 0) {
+      if (integerPart >= 10000000) { words += convertBlock(Math.floor(integerPart / 10000000)) + 'Crore '; }
+      let rem = integerPart % 10000000;
+      if (rem >= 100000) { words += convertBlock(Math.floor(rem / 100000)) + 'Lakh '; }
+      rem = rem % 100000;
+      if (rem >= 1000) { words += convertBlock(Math.floor(rem / 1000)) + 'Thousand '; }
+      rem = rem % 1000;
+      if (rem > 0) { words += convertBlock(rem); }
+    } else {
+      words = 'Zero ';
+    }
+    return words.trim() + ' Only';
+  };
+
+  const formatGst = (gst) => {
+    if (!gst) return '';
+    return gst.toString().replace(/\s+/g, '').replace(/(.{3})/g, '$1 ').trim();
+  };
+
+  const getBillHtml = (bill, items, type = 'big', settings = {}) => {
+    const activeCompanyId = settings.activeCompany || 'company1';
+    let company = settings[activeCompanyId];
+    if (!company) {
+      company = {
+        name: 'DHANALAKSHMI TEXTILES',
+        address1: '4/2C PUDUVALASU, K.G VALASU(PO), CHENNIMALAI(VIA)',
+        address2: 'ERODE DIST, TAMIL NADU - 638051',
+        gst: '33AXHPA9951A1ZU',
+        phone: '+91 98427 64988',
+        bankName: 'PUNJAB NATIONAL BANK',
+        accNo: '5893002100002556',
+        ifsc: 'PUNB0589300',
+        terms: '1. Goods once sold will not be taken back.<br/>2. All disputes subject to Erode jurisdiction.'
+      };
+    }
+    const showBankOnTransport = settings.showBankOnTransport !== false;
+    const showDiscount = settings.showDiscount !== false;
+
     // Standardize field names for robustness between DB (snake_case) and Frontend (camelCase)
     const b = {
       billNumber: bill.billNumber || bill.bill_number || '',
@@ -106,10 +156,10 @@ function setupIpcHandlers() {
               
               <div class="header-section">
                 <div class="brand-area">
-                  <h1>DHANALAKSHMI TEXTILES</h1>
-                  <p>4/2C PUDUVALASU, K.G VALASU(PO), CHENNIMALAI(VIA)</p>
-                  <p>ERODE DIST, TAMIL NADU - 638051</p>
-                  <p style="color:#000; margin-top:8px;">GSTIN: 33AXHPA9951A1ZU</p>
+                  <h1>${company.name}</h1>
+                  <p>${company.address1}</p>
+                  <p>${company.address2}</p>
+                  <p style="color:#000; margin-top:8px;">GSTIN: ${company.gst}</p>
                 </div>
                 <div class="meta-area">
                   <div class="invoice-title">
@@ -118,21 +168,21 @@ function setupIpcHandlers() {
                   </div>
                   <div class="meta-row"><span>DATE</span> <span>${b.date}</span></div>
                   <div class="meta-row"><span>AGENT</span> <span>${b.agentId ? 'COMMISSION' : 'DIRECT'}</span></div>
-                  <div class="meta-row"><span>CONTACT</span> <span>+91 98427 64988</span></div>
+                  <div class="meta-row"><span>CONTACT</span> <span>${company.phone}</span></div>
                 </div>
               </div>
               
               <div class="info-bar">
-                <div class="info-item" style="flex: 1;">BANK: PUNJAB NATIONAL BANK</div>
-                <div class="info-item" style="flex: 1.2;">A/C: 5893002100002556</div>
-                <div class="info-item" style="flex: 0.8;">IFSC: PUNB0589300</div>
+                <div class="info-item" style="flex: 1;">BANK: ${company.bankName}</div>
+                <div class="info-item" style="flex: 1.2;">A/C: ${company.accNo}</div>
+                <div class="info-item" style="flex: 0.8;">IFSC: ${company.ifsc}</div>
               </div>
               
               <div class="party-section">
                 <div class="section-label">Bill To</div>
                 <div class="party-name">${b.partyName}</div>
                 <div class="party-address">${b.partyAddress}</div>
-                ${b.partyGst ? `<div class="party-gst">GSTIN/ID: ${b.partyGst}</div>` : ''}
+                ${b.partyGst ? `<div class="party-gst">GSTIN/ID: ${formatGst(b.partyGst)}</div>` : ''}
               </div>
               
               <table>
@@ -166,8 +216,7 @@ function setupIpcHandlers() {
               <div class="calc-grid">
                 <div class="calc-notes">
                   <div class="section-label">Notes / Conditions</div>
-                  1. Goods once sold will not be taken back.<br/>
-                  2. All disputes subject to Erode jurisdiction.
+                  ${company.terms}
                 </div>
                 <div class="calc-table">
                   <div class="calc-row">
@@ -205,7 +254,10 @@ function setupIpcHandlers() {
               </div>
               
               <div class="total-strip">
-                <div class="total-label">NET PAYABLE AMOUNT</div>
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                  <div class="total-label">NET PAYABLE AMOUNT</div>
+                  <div style="font-size: 8pt; font-weight: 600; text-transform: capitalize; letter-spacing: 0.5px;">Rupees ${numberToWords(b.totalAmount)}</div>
+                </div>
                 <div class="total-amount">₹ ${b.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
               </div>
               
@@ -227,7 +279,7 @@ function setupIpcHandlers() {
                   </div>
                 </div>
                 <div class="signature-area">
-                  <div class="sig-title">For DHANALAKSHMI TEXTILES</div>
+                  <div class="sig-title">For ${company.name}</div>
                   <div style="border-top: 1pt dashed #ccc; padding-top: 5px; font-size: 8pt; font-weight: 900;">AUTHORISED SIGNATORY</div>
                 </div>
               </div>
@@ -308,10 +360,10 @@ function setupIpcHandlers() {
               
               <div class="header-section">
                 <div class="brand-area">
-                  <h1>DHANALAKSHMI TEXTILES</h1>
-                  <p>4/2C PUDUVALASU, K.G VALASU(PO), CHENNIMALAI(VIA)</p>
-                  <p>ERODE DIST, TAMIL NADU - 638051</p>
-                  <p style="color:#000; margin-top:8px;">GSTIN: 33AXHPA9951A1ZU</p>
+                  <h1>${company.name}</h1>
+                  <p>${company.address1}</p>
+                  <p>${company.address2}</p>
+                  <p style="color:#000; margin-top:8px;">GSTIN: ${company.gst}</p>
                 </div>
                 <div class="meta-area">
                   <div class="invoice-title">
@@ -319,15 +371,22 @@ function setupIpcHandlers() {
                     <span style="font-size: 9pt; opacity: 0.6;">TRANSPORT</span>
                   </div>
                   <div class="meta-row"><span>DATE</span> <span>${b.date}</span></div>
-                  <div class="meta-row"><span>CONTACT</span> <span>+91 98427 64988</span></div>
+                  <div class="meta-row"><span>CONTACT</span> <span>${company.phone}</span></div>
                 </div>
               </div>
+              
+              ${showBankOnTransport ? `
+              <div class="info-bar">
+                <div class="info-item" style="flex: 1;">BANK: ${company.bankName}</div>
+                <div class="info-item" style="flex: 1.2;">A/C: ${company.accNo}</div>
+                <div class="info-item" style="flex: 0.8;">IFSC: ${company.ifsc}</div>
+              </div>` : ''}
               
               <div class="party-section">
                 <div class="section-label">Bill To</div>
                 <div class="party-name">${b.partyName}</div>
                 <div class="party-address">${b.partyAddress}</div>
-                ${b.partyGst ? `<div class="party-gst">GSTIN/ID: ${b.partyGst}</div>` : ''}
+                ${b.partyGst ? `<div class="party-gst">GSTIN/ID: ${formatGst(b.partyGst)}</div>` : ''}
               </div>
               
               <table>
@@ -361,8 +420,7 @@ function setupIpcHandlers() {
               <div class="calc-grid">
                 <div class="calc-notes">
                   <div class="section-label">Notes / Conditions</div>
-                  1. Goods once sold will not be taken back.<br/>
-                  2. All disputes subject to Erode jurisdiction.
+                  ${company.terms}
                 </div>
                 <div class="calc-table">
                   <div class="calc-row">
@@ -395,7 +453,10 @@ function setupIpcHandlers() {
               </div>
               
               <div class="total-strip">
-                <div class="total-label">NET PAYABLE AMOUNT</div>
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                  <div class="total-label">NET PAYABLE AMOUNT</div>
+                  <div style="font-size: 8pt; font-weight: 600; text-transform: capitalize; letter-spacing: 0.5px;">Rupees ${numberToWords(transportTotal)}</div>
+                </div>
                 <div class="total-amount">₹ ${transportTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
               </div>
               
@@ -417,7 +478,7 @@ function setupIpcHandlers() {
                   </div>
                 </div>
                 <div class="signature-area">
-                  <div class="sig-title">For DHANALAKSHMI TEXTILES</div>
+                  <div class="sig-title">For ${company.name}</div>
                   <div style="border-top: 1pt dashed #ccc; padding-top: 5px; font-size: 8pt; font-weight: 900;">AUTHORISED SIGNATORY</div>
                 </div>
               </div>
@@ -463,9 +524,19 @@ function setupIpcHandlers() {
     return `${prefix}_${baseName}.pdf`;
   };
 
+  const getSettingsObj = async () => {
+    const rows = await dbAll('SELECT key, value FROM settings');
+    const s = {};
+    for (const row of rows) {
+      try { s[row.key] = JSON.parse(row.value); } catch(e) { s[row.key] = row.value; }
+    }
+    return s;
+  };
+
   const generateBillPdf = async (bill, items, type = 'big') => {
     const win = new BrowserWindow({ show: false });
-    const htmlContent = getBillHtml(bill, items, type);
+    const settings = await getSettingsObj();
+    const htmlContent = getBillHtml(bill, items, type, settings);
 
     await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
     
@@ -492,7 +563,8 @@ function setupIpcHandlers() {
 
   ipcMain.handle('print-bill', async (event, bill, items, type = 'big') => {
     const win = new BrowserWindow({ show: false });
-    const htmlContent = getBillHtml(bill, items, type);
+    const settings = await getSettingsObj();
+    const htmlContent = getBillHtml(bill, items, type, settings);
 
     await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
     
@@ -559,7 +631,80 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('get-bill-preview', async (event, bill, items, type = 'big') => {
-    return getBillHtml(bill, items, type);
+    const settings = await getSettingsObj();
+    return getBillHtml(bill, items, type, settings);
+  });
+
+  // Settings Handlers
+  ipcMain.handle('get-settings', async () => {
+    return await getSettingsObj();
+  });
+
+  ipcMain.handle('save-settings', async (event, newSettings) => {
+    await dbRun('BEGIN TRANSACTION');
+    try {
+      for (const [key, value] of Object.entries(newSettings)) {
+        const valStr = typeof value === 'object' ? JSON.stringify(value) : (value !== null && value !== undefined ? value.toString() : '');
+        await dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, valStr]);
+      }
+      await dbRun('COMMIT');
+      return { success: true };
+    } catch (e) {
+      await dbRun('ROLLBACK');
+      return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('backup-database', async () => {
+    const { dialog } = require('electron');
+    const dbPath = path.join(app.getPath('userData'), 'database', 'dhanalakshmi.db');
+    const { filePath } = await dialog.showSaveDialog({
+      title: 'Backup Database',
+      defaultPath: `dhanalakshmi_backup_${new Date().toISOString().slice(0,10)}.db`,
+      filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite'] }]
+    });
+    if (filePath) {
+      fs.copyFileSync(dbPath, filePath);
+      return { success: true, path: filePath };
+    }
+    return { success: false, cancelled: true };
+  });
+
+  ipcMain.handle('restore-database', async () => {
+    const { dialog } = require('electron');
+    const dbPath = path.join(app.getPath('userData'), 'database', 'dhanalakshmi.db');
+    const { filePaths } = await dialog.showOpenDialog({
+      title: 'Restore Database',
+      properties: ['openFile'],
+      filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite'] }]
+    });
+    if (filePaths && filePaths.length > 0) {
+      try {
+        fs.copyFileSync(filePaths[0], dbPath);
+        return { success: true }; 
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
+    return { success: false, cancelled: true };
+  });
+
+  ipcMain.handle('factory-reset', async (event, password) => {
+    if (password !== 'admin123') return { success: false, error: 'Incorrect password' };
+    await dbRun('BEGIN TRANSACTION');
+    try {
+      await dbRun('DELETE FROM bill_items');
+      await dbRun('DELETE FROM bills');
+      await dbRun('DELETE FROM parties');
+      await dbRun('DELETE FROM customers');
+      await dbRun('DELETE FROM agents');
+      // Intentionally leaving settings intact
+      await dbRun('COMMIT');
+      return { success: true };
+    } catch (e) {
+      await dbRun('ROLLBACK');
+      return { success: false, error: e.message };
+    }
   });
 
   // Customers

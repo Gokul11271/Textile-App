@@ -66,6 +66,12 @@ export function Billing() {
     if (window.electron && window.electron.db) {
       window.electron.db.getParties().then(data => setParties(data || []))
       window.electron.db.getAgents().then(data => setAgents(data || []))
+      
+      window.electron.ipcRenderer.invoke('get-settings').then(settings => {
+        if (settings && settings.defaultTaxRate !== undefined) {
+          setBillData(prev => ({ ...prev, taxRate: Number(settings.defaultTaxRate) }));
+        }
+      });
       loadStats()
       window.electron.db.getLastBillNumber().then(lastNo => {
         if (lastNo) {
