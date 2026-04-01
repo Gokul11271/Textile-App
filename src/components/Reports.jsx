@@ -18,6 +18,7 @@ export function Reports({ theme }) {
   const [loading, setLoading] = useState(false);
   const [batchStart, setBatchStart] = useState('');
   const [batchEnd, setBatchEnd] = useState('');
+  const [batchLr, setBatchLr] = useState('');
   const [printing, setPrinting] = useState(false);
 
   useEffect(() => {
@@ -109,6 +110,33 @@ export function Reports({ theme }) {
     }
   };
 
+  const handleBatchUpdateLrAndPrint = async () => {
+    if (!batchStart || !batchEnd || !batchLr) {
+      alert('Please enter Start Bill No, End Bill No, and Starting LR Number');
+      return;
+    }
+    setPrinting(true);
+    try {
+      const updateResult = await window.electron.ipcRenderer.invoke('update-lr-numbers', batchStart, batchEnd, batchLr);
+      if (updateResult.success) {
+        // Now print the big bills
+        const results = await window.electron.ipcRenderer.invoke('print-bill-range', batchStart, batchEnd, 'big');
+        const successCount = results.filter(r => r.success).length;
+        alert(`Updated LR for ${updateResult.count} bills. Print Completed: ${successCount}/${results.length} bills processed.`);
+        
+        // Update local state without full refetch if possible, or just refetch
+        handleFilter(); 
+      } else {
+        alert(updateResult.message || updateResult.error || 'Failed to update LR numbers');
+      }
+    } catch (error) {
+      console.error('Batch LR update/print failed:', error);
+      alert('Batch LR update and print failed. Check console for details.');
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   const totals = filteredBills.reduce((acc, b) => {
     const taxableValue = b.total_amount - b.tax_amount;
     return {
@@ -143,7 +171,7 @@ export function Reports({ theme }) {
       <div className="p-6 rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest">
         <div className="flex flex-wrap items-end gap-6">
           <div className="flex-1 min-w-[300px]">
-            <h3 className="m3-title-small text-m3-on-surface mb-4">Batch Print Bills</h3>
+            <h3 className="m3-title-small text-m3-on-surface mb-4">Batch Print & Assign LR</h3>
             <div className="flex items-center gap-4">
               <div className="flex-1">
                 <label className={labelBase}>Start No</label>
@@ -165,29 +193,52 @@ export function Reports({ theme }) {
                   className={`${inputBase} font-mono`}
                 />
               </div>
+              <div className="flex-1">
+                <label className={labelBase}>Start LR No</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 100"
+                  value={batchLr}
+                  onChange={(e) => setBatchLr(e.target.value)}
+                  className={`${inputBase} font-mono`}
+                />
+              </div>
             </div>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleBatchPrint('big')}
+                disabled={printing || !batchStart || !batchEnd}
+                className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-full m3-label-large transition-all ${
+                  printing || !batchStart || !batchEnd ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98] hover:shadow-m3-1'
+                } bg-m3-surface-container-highest text-m3-on-surface`}
+              >
+                <Printer size={16} />
+                Print Big
+              </button>
+              <button
+                onClick={() => handleBatchPrint('transport')}
+                disabled={printing || !batchStart || !batchEnd}
+                className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-full m3-label-large transition-all ${
+                  printing || !batchStart || !batchEnd ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98] hover:shadow-m3-1'
+                } bg-m3-surface-container-highest text-m3-on-surface`}
+              >
+                <Printer size={16} />
+                Print Transport
+              </button>
+            </div>
+            
             <button
-              onClick={() => handleBatchPrint('big')}
-              disabled={printing}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-full m3-label-large transition-all ${
-                printing ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98]'
-              } bg-m3-primary text-m3-on-primary hover:shadow-m3-1`}
+              onClick={handleBatchUpdateLrAndPrint}
+              disabled={printing || !batchStart || !batchEnd || !batchLr}
+              className={`w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-full m3-label-large transition-all ${
+                printing || !batchStart || !batchEnd || !batchLr ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98] hover:shadow-m3-1'
+              } bg-m3-primary text-m3-on-primary`}
             >
-              <Printer size={16} />
-              {printing ? 'Printing...' : 'Print (Original)'}
-            </button>
-            <button
-              onClick={() => handleBatchPrint('transport')}
-              disabled={printing}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-full m3-label-large transition-all ${
-                printing ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98]'
-              } bg-m3-secondary-container text-m3-on-secondary-container hover:shadow-m3-1`}
-            >
-              <Printer size={16} />
-              {printing ? 'Printing...' : 'Print (Transport)'}
+              <FileText size={16} />
+              {printing ? 'Processing...' : 'Assign LR & Print Big Bills'}
             </button>
           </div>
         </div>

@@ -1,8 +1,11 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
+const { app } = require('electron');
 
-const dbDir = 'C:\\sqlite';
+// Use app.getPath('userData') to ensure the database is stored in a location
+// that doesn't require admin privileges and persists across updates.
+const dbDir = path.join(app.getPath('userData'), 'database');
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }

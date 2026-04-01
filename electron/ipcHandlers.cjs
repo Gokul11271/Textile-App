@@ -12,11 +12,11 @@ function setupIpcHandlers() {
       partyName: bill.partyName || bill.party_name || '',
       partyAddress: bill.partyAddress || bill.party_address || '',
       partyGst: bill.partyGst || bill.party_gst_number || '',
-      taxRate: bill.taxRate || bill.tax_rate || 5,
-      taxAmount: bill.taxAmount || bill.tax_amount || 0,
-      totalAmount: bill.totalAmount || bill.total_amount || 0,
-      discountPercent: bill.discountPercent || bill.discount_percent || 0,
-      discountAmount: bill.discountAmount || bill.discount_amount || 0,
+      taxRate: Number(bill.taxRate || bill.tax_rate || 5),
+      taxAmount: Number(bill.taxAmount || bill.tax_amount || 0),
+      totalAmount: Number(bill.totalAmount || bill.total_amount || 0),
+      discountPercent: Number(bill.discountPercent || bill.discount_percent || 0),
+      discountAmount: Number(bill.discountAmount || bill.discount_amount || 0),
       lorryOffice: bill.lorryOffice || bill.lorry_office || '',
       lrNumber: bill.lrNumber || bill.lr_number || '',
       isInterState: bill.isInterState || bill.is_inter_state || false,
@@ -28,7 +28,7 @@ function setupIpcHandlers() {
     const taxRate = b.taxRate;
     const splitTaxRate = (taxRate / 2).toFixed(1);
     const splitTaxAmount = (b.taxAmount / 2).toFixed(2);
-    const subtotal = items.reduce((sum, item) => sum + (item.amount || 0), 0);
+    const subtotal = items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     const discountText = b.discountPercent > 0 ? `${b.discountPercent}%` : '';
 
     if (type === 'big') {
@@ -151,8 +151,8 @@ function setupIpcHandlers() {
                       <td class="text-center" style="border-left: none;">${item.size || '-'}</td>
                       <td>${item.productName}</td>
                       <td class="text-center">${item.quantity}</td>
-                      <td class="text-center">${item.rate.toFixed(2)}</td>
-                      <td class="text-right" style="border-right: none;">${item.amount.toFixed(2)}</td>
+                      <td class="text-center">${Number(item.rate || 0).toFixed(2)}</td>
+                      <td class="text-right" style="border-right: none;">${Number(item.amount || 0).toFixed(2)}</td>
                     </tr>
                   `).join('')}
                   ${Array(Math.max(0, 12 - items.length)).fill(0).map(() => `
@@ -236,60 +236,231 @@ function setupIpcHandlers() {
         </html>
       `;
     } else {
-      // Professional Transport Copy
+      // Transport Copy - Same layout as big bill but without Agent, Bank details, and Discount
+      const transportSubtotal = subtotal; // No discount applied for transport copy
+      const transportNetAmount = transportSubtotal; // Skip discount
+      const transportTaxAmt = (transportNetAmount * (taxRate || 0)) / 100;
+      const transportTotal = transportNetAmount + transportTaxAmt;
+      const transportSplitTaxAmount = (transportTaxAmt / 2).toFixed(2);
+
       return `
         <html>
           <head>
             <style>
-              body { font-family: sans-serif; padding: 30px; }
-              .transport-card { border: 4pt double #000; padding: 40px; }
-              .header { text-align: center; border-bottom: 2pt solid #000; padding-bottom: 20px; margin-bottom: 30px; }
-              .title { font-size: 10pt; font-weight: 900; letter-spacing: 3px; }
-              .brand { font-size: 28pt; font-weight: 900; margin: 5px 0; }
-              .details { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 14pt; margin-bottom: 40px; }
-              .bale-box { border: 4pt solid #000; padding: 40px; text-align: center; }
-              .bale-label { font-size: 12pt; font-weight: 900; text-decoration: underline; margin-bottom: 20px; }
-              .bale-nums { font-size: 48pt; font-weight: 900; }
-              .footer { margin-top: 60px; display: flex; justify-content: space-between; font-weight: 900; }
+              @page { margin: 8mm; }
+              body { 
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                margin: 0; padding: 0; color: #1a1a1a; line-height: 1.3;
+              }
+              .container { border: 1.2pt solid #000; padding: 0; width: 100%; box-sizing: border-box; }
+              
+              /* Professional Header */
+              .header-section { display: flex; border-bottom: 2pt solid #000; background: #fff; }
+              .brand-area { flex: 1.8; padding: 15px; border-right: 1.2pt solid #000; }
+              .brand-area h1 { margin: 0; font-size: 22pt; font-weight: 900; color: #000; letter-spacing: -0.5px; }
+              .brand-area p { margin: 3px 0; font-size: 9pt; font-weight: 600; color: #444; text-transform: uppercase; }
+              
+              .meta-area { flex: 1; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; }
+              .invoice-title { font-size: 14pt; font-weight: 900; display: flex; justify-content: space-between; border-bottom: 1pt solid #000; padding-bottom: 5px; margin-bottom: 10px; }
+              .meta-row { display: flex; justify-content: space-between; font-size: 9pt; margin-bottom: 4px; font-weight: 700; }
+              
+              /* Party Details */
+              .party-section { padding: 12px 15px; border-bottom: 1.2pt solid #000; }
+              .section-label { font-size: 7pt; font-weight: 900; color: #666; text-transform: uppercase; margin-bottom: 4px; }
+              .party-name { font-size: 13pt; font-weight: 800; margin-bottom: 2px; }
+              .party-address { font-size: 9.5pt; font-weight: 500; color: #333; max-width: 80%; }
+              .party-gst { margin-top: 5px; font-weight: 800; font-size: 9pt; }
+              
+              /* Table Styling */
+              table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+              th { background: #000; color: #fff; font-size: 8.5pt; padding: 8px 10px; text-align: left; border: 0.5pt solid #000; }
+              td { padding: 8px 10px; border: 0.5pt solid #000; font-size: 10pt; font-weight: 600; }
+              .text-right { text-align: right; }
+              .text-center { text-align: center; }
+              
+              /* Calculation Area */
+              .calc-grid { display: flex; border-bottom: 1.2pt solid #000; }
+              .calc-notes { flex: 1.5; padding: 10px; border-right: 1.2pt solid #000; font-size: 8pt; color: #666; font-style: italic; }
+              .calc-table { flex: 1; }
+              .calc-row { display: flex; border-bottom: 0.5pt solid #000; }
+              .calc-row:last-child { border-bottom: none; }
+              .calc-label { flex: 1.5; padding: 6px 10px; font-size: 8.5pt; font-weight: 800; text-transform: uppercase; border-right: 0.5pt solid #000; background: #fdfdfd; }
+              .calc-value { flex: 1; padding: 6px 10px; font-size: 9.5pt; font-weight: 800; text-align: right; }
+              
+              /* Grande Total */
+              .total-strip { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: #000; color: #fff; }
+              .total-label { font-size: 10pt; font-weight: 900; letter-spacing: 2px; }
+              .total-amount { font-size: 20pt; font-weight: 900; }
+              
+              /* Footer Area */
+              .footer-section { display: flex; height: 90px; }
+              .shipping-details { flex: 2; padding: 10px; border-right: 1.2pt solid #000; border-top: 1.2pt solid #000; }
+              .signature-area { flex: 1; padding: 15px; text-align: center; border-top: 1.2pt solid #000; display: flex; flex-direction: column; justify-content: space-between; }
+              .sig-title { font-size: 7.5pt; font-weight: 900; text-transform: uppercase; }
+              
+              .bale-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-top: 5px; }
+              .bale-item { border: 1pt solid #000; text-align: center; font-size: 8pt; font-weight: 900; padding: 2px 0; background: #f9f9f9; }
             </style>
           </head>
           <body>
-            <div class="transport-card">
-              <div class="header">
-                <div class="title">TRANSPORT CLEARANCE COPY</div>
-                <div class="brand">DHANALAKSHMI TEXTILES</div>
-                <div style="font-weight: 900;">GSTIN: 33AXHPA9951A1ZU</div>
-              </div>
-              <div class="details">
-                <div style="font-size: 11pt; font-weight: 800;">
-                  <p style="margin: 5px 0;">PARTY: ${b.partyName}</p>
-                  <p style="margin: 5px 0;">LORRY: ${b.lorryOffice || 'LOCAL'}</p>
+            <div class="container">
+              <div style="background: #000; color: #fff; padding: 3px 15px; font-size: 7pt; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">Transport Copy - For Transporter</div>
+              
+              <div class="header-section">
+                <div class="brand-area">
+                  <h1>DHANALAKSHMI TEXTILES</h1>
+                  <p>4/2C PUDUVALASU, K.G VALASU(PO), CHENNIMALAI(VIA)</p>
+                  <p>ERODE DIST, TAMIL NADU - 638051</p>
+                  <p style="color:#000; margin-top:8px;">GSTIN: 33AXHPA9951A1ZU</p>
                 </div>
-                <div style="text-align: right; font-size: 11pt; font-weight: 800;">
-                  <p style="margin: 5px 0;">DATE: ${b.date}</p>
-                  <p style="margin: 5px 0;">INVOICE: ${b.billNumber}</p>
-                  <p style="margin: 5px 0;">LR NO: ${b.lrNumber || 'N/A'}</p>
-                </div>
-              </div>
-              <div class="bale-box">
-                <div class="bale-label">BALE SHIPMENT NUMBERS</div>
-                <div class="bale-nums">
-                  ${(() => {
-                    const balesRow = b.baleNumbers;
-                    const bales = Array.isArray(balesRow) ? balesRow : JSON.parse(balesRow || '[]');
-                    return bales.filter(b => b).join(', ') || '###';
-                  })()}
+                <div class="meta-area">
+                  <div class="invoice-title">
+                    <span>#${b.billNumber.replace(/^[^\d]*/, '')}</span>
+                    <span style="font-size: 9pt; opacity: 0.6;">TRANSPORT</span>
+                  </div>
+                  <div class="meta-row"><span>DATE</span> <span>${b.date}</span></div>
+                  <div class="meta-row"><span>CONTACT</span> <span>+91 98427 64988</span></div>
                 </div>
               </div>
-              <div class="footer">
-                <div>RECEIVER'S SIGNATURE</div>
-                <div>AUTHORISED SEAL & SIGN</div>
+              
+              <div class="party-section">
+                <div class="section-label">Bill To</div>
+                <div class="party-name">${b.partyName}</div>
+                <div class="party-address">${b.partyAddress}</div>
+                ${b.partyGst ? `<div class="party-gst">GSTIN/ID: ${b.partyGst}</div>` : ''}
+              </div>
+              
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 15%; border-left: none;">SIZE</th>
+                    <th style="width: 45%;">PARTICULARS (HSN 6304)</th>
+                    <th style="width: 10%;" class="text-center">QTY</th>
+                    <th style="width: 12%;" class="text-center">RATE</th>
+                    <th style="width: 18%; border-right: none;" class="text-right">AMOUNT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${items.map(item => `
+                    <tr>
+                      <td class="text-center" style="border-left: none;">${item.size || '-'}</td>
+                      <td>${item.productName}</td>
+                      <td class="text-center">${item.quantity}</td>
+                      <td class="text-center">${Number(item.rate || 0).toFixed(2)}</td>
+                      <td class="text-right" style="border-right: none;">${Number(item.amount || 0).toFixed(2)}</td>
+                    </tr>
+                  `).join('')}
+                  ${Array(Math.max(0, 12 - items.length)).fill(0).map(() => `
+                    <tr style="height: 22px;">
+                      <td style="border-left: none;"></td><td></td><td></td><td></td><td style="border-right: none;"></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+              
+              <div class="calc-grid">
+                <div class="calc-notes">
+                  <div class="section-label">Notes / Conditions</div>
+                  1. Goods once sold will not be taken back.<br/>
+                  2. All disputes subject to Erode jurisdiction.
+                </div>
+                <div class="calc-table">
+                  <div class="calc-row">
+                    <div class="calc-label">Total Qty</div>
+                    <div class="calc-value">${items.reduce((sum, i) => sum + Number(i.quantity || 0), 0)}</div>
+                  </div>
+                  <div class="calc-row">
+                    <div class="calc-label">Sub Total</div>
+                    <div class="calc-value">₹ ${transportSubtotal.toFixed(2)}</div>
+                  </div>
+                  
+                  ${isLocal ? `
+                  <div class="calc-row" style="flex-direction: column;">
+                    <div style="display:flex; width:100%; border-bottom: 0.5pt solid #000;">
+                      <div class="calc-label" style="border-bottom: none;">CGST (${splitTaxRate}%)</div>
+                      <div class="calc-value">${transportSplitTaxAmount}</div>
+                    </div>
+                    <div style="display:flex; width:100%;">
+                      <div class="calc-label" style="border-bottom: none;">SGST (${splitTaxRate}%)</div>
+                      <div class="calc-value">${transportSplitTaxAmount}</div>
+                    </div>
+                  </div>
+                  ` : `
+                  <div class="calc-row">
+                    <div class="calc-label">IGST (${taxRate}%)</div>
+                    <div class="calc-value">${transportTaxAmt.toFixed(2)}</div>
+                  </div>
+                  `}
+                </div>
+              </div>
+              
+              <div class="total-strip">
+                <div class="total-label">NET PAYABLE AMOUNT</div>
+                <div class="total-amount">₹ ${transportTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+              </div>
+              
+              <div class="footer-section">
+                <div class="shipping-details">
+                  <div class="section-label">Logistics Details</div>
+                  <div style="display: flex; gap: 20px; font-weight: 800; font-size: 9pt; margin-top: 5px;">
+                    <span>LORRY: ${b.lorryOffice || 'Local'}</span>
+                    <span>LR NO: ${b.lrNumber || 'N/A'}</span>
+                  </div>
+                  <div style="margin-top: 10px;">
+                    <div class="section-label" style="font-size: 6pt;">Bale Tracking (Sync)</div>
+                    <div class="bale-grid">
+                      ${(() => {
+                        const bales = Array.isArray(b.baleNumbers) ? b.baleNumbers : JSON.parse(b.baleNumbers || '[]');
+                        return bales.concat(Array(8).fill('')).slice(0, 8).map(b => `<div class="bale-item">${b}</div>`).join('');
+                      })()}
+                    </div>
+                  </div>
+                </div>
+                <div class="signature-area">
+                  <div class="sig-title">For DHANALAKSHMI TEXTILES</div>
+                  <div style="border-top: 1pt dashed #ccc; padding-top: 5px; font-size: 8pt; font-weight: 900;">AUTHORISED SIGNATORY</div>
+                </div>
               </div>
             </div>
           </body>
         </html>
       `;
     }
+  };
+
+  // Helper to sanitize strings for use in filenames
+  const sanitizeForFilename = (str) => {
+    if (!str) return '';
+    return str.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim();
+  };
+
+  // Build PDF filename: billNumber_date_agentName_partyName_lorry
+  // If agent name doesn't exist, skip that part
+  const buildPdfFilename = async (bill, type = 'big') => {
+    const billNo = sanitizeForFilename(bill.billNumber || bill.bill_number || '');
+    const date = sanitizeForFilename(bill.date || '');
+    const partyName = sanitizeForFilename(bill.partyName || bill.party_name || '');
+    const lorry = sanitizeForFilename(bill.lorryOffice || bill.lorry_office || '');
+
+    // Look up agent name from DB if agentId exists
+    let agentName = '';
+    const agentId = bill.agentId || bill.agent_id;
+    if (agentId) {
+      const agent = await dbGet('SELECT name FROM agents WHERE id = ?', [agentId]);
+      if (agent && agent.name) {
+        agentName = sanitizeForFilename(agent.name);
+      }
+    }
+
+    // Build parts: billNumber_date_agentName_partyName_lorry
+    const parts = [billNo, date];
+    if (agentName) parts.push(agentName);
+    parts.push(partyName);
+    if (lorry) parts.push(lorry);
+
+    const prefix = type === 'big' ? 'Bill' : 'Transport';
+    const baseName = parts.filter(p => p).join('_');
+    return `${prefix}_${baseName}.pdf`;
   };
 
   const generateBillPdf = async (bill, items, type = 'big') => {
@@ -299,8 +470,7 @@ function setupIpcHandlers() {
     await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
     
     const docPath = app.getPath('documents');
-    const billNo = bill.billNumber || bill.bill_number;
-    const fileName = `${type === 'big' ? 'Bill' : 'Transport'}_${billNo}.pdf`;
+    const fileName = await buildPdfFilename(bill, type);
     const pdfPath = path.join(docPath, 'Dhanalakshmi_Bills', fileName);
     const dir = path.dirname(pdfPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -334,6 +504,39 @@ function setupIpcHandlers() {
         else resolve({ success: true });
       });
     });
+  });
+
+  ipcMain.handle('update-lr-numbers', async (event, startNo, endNo, startLrNo) => {
+    const bills = await dbAll(`
+      SELECT id, bill_number FROM bills
+      WHERE bill_number >= ? AND bill_number <= ?
+      ORDER BY bill_number ASC
+    `, [startNo, endNo]);
+
+    if (!bills || bills.length === 0) return { success: false, message: 'No bills found in this range' };
+
+    let currentLrMatch = startLrNo.match(/^(\D*)(\d+)(\D*)$/);
+    let currentLrNum = currentLrMatch ? parseInt(currentLrMatch[2], 10) : parseInt(startLrNo, 10);
+    const prefix = currentLrMatch ? currentLrMatch[1] : '';
+    const suffix = currentLrMatch ? currentLrMatch[3] : '';
+
+    await dbRun('BEGIN TRANSACTION');
+    try {
+      for (const bill of bills) {
+        let newLr = startLrNo;
+        if (!isNaN(currentLrNum)) {
+          newLr = `${prefix}${currentLrNum}${suffix}`;
+          currentLrNum++;
+        }
+        await dbRun('UPDATE bills SET lr_number = ? WHERE id = ?', [newLr, bill.id]);
+      }
+      await dbRun('COMMIT');
+      return { success: true, count: bills.length };
+    } catch (err) {
+      await dbRun('ROLLBACK');
+      console.error('Failed to update LR numbers:', err);
+      return { success: false, error: err.message };
+    }
   });
 
   ipcMain.handle('print-bill-range', async (event, startNo, endNo, type = 'big') => {
@@ -393,44 +596,85 @@ function setupIpcHandlers() {
     return await dbAll('SELECT * FROM agents ORDER BY name ASC');
   });
 
-  // Bills
   ipcMain.handle('save-bill', async (event, bill, items) => {
     try {
       await dbRun('BEGIN TRANSACTION');
+
+      // Filter out completely empty items (no product name, no quantity, no rate)
+      const validItems = items.filter(item => 
+        (item.productName && item.productName.trim()) || Number(item.quantity) > 0 || Number(item.rate) > 0
+      );
+
+      // Check if bill already exists
+      const existing = await dbGet('SELECT id FROM bills WHERE bill_number = ?', [bill.billNumber]);
+      let billId;
+
+      if (existing) {
+        // Update existing bill
+        await dbRun(`
+          UPDATE bills SET
+            date = ?, agent_id = ?, party_id = ?,
+            discount_percent = ?, discount_amount = ?,
+            tax_rate = ?, tax_amount = ?, is_inter_state = ?,
+            lr_number = ?, lorry_office = ?,
+            is_bale_enabled = ?, bale_numbers = ?, total_amount = ?
+          WHERE bill_number = ?
+        `, [
+          bill.date,
+          bill.agentId || null,
+          bill.partyId || null,
+          bill.discountPercent || 0,
+          bill.discountAmount || 0,
+          bill.taxRate || 5,
+          bill.taxAmount || 0,
+          bill.isInterState ? 1 : 0,
+          bill.lrNumber || '',
+          bill.lorryOffice || '',
+          bill.isBaleEnabled ? 1 : 0,
+          JSON.stringify(bill.baleNumbers || []),
+          bill.totalAmount || 0,
+          bill.billNumber
+        ]);
+        billId = existing.id;
+
+        // Delete old items before re-inserting
+        await dbRun('DELETE FROM bill_items WHERE bill_id = ?', [billId]);
+      } else {
+        // Insert new bill
+        const billResult = await dbRun(`
+          INSERT INTO bills (
+            bill_number, date, agent_id, party_id, 
+            discount_percent, discount_amount, 
+            tax_rate, tax_amount, is_inter_state,
+            lr_number, lorry_office, 
+            is_bale_enabled, bale_numbers, total_amount
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          bill.billNumber,
+          bill.date,
+          bill.agentId || null,
+          bill.partyId || null,
+          bill.discountPercent || 0,
+          bill.discountAmount || 0,
+          bill.taxRate || 5,
+          bill.taxAmount || 0,
+          bill.isInterState ? 1 : 0,
+          bill.lrNumber || '',
+          bill.lorryOffice || '',
+          bill.isBaleEnabled ? 1 : 0,
+          JSON.stringify(bill.baleNumbers || []),
+          bill.totalAmount || 0
+        ]);
+        billId = billResult.lastID;
+      }
       
-      const billResult = await dbRun(`
-        INSERT OR REPLACE INTO bills (
-          bill_number, date, agent_id, party_id, 
-          discount_percent, discount_amount, 
-          tax_rate, tax_amount, is_inter_state,
-          lr_number, lorry_office, 
-          is_bale_enabled, bale_numbers, total_amount
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        bill.billNumber,
-        bill.date,
-        bill.agentId,
-        bill.partyId,
-        bill.discountPercent,
-        bill.discountAmount,
-        bill.taxRate,
-        bill.taxAmount,
-        bill.isInterState ? 1 : 0,
-        bill.lrNumber,
-        bill.lorryOffice,
-        bill.isBaleEnabled ? 1 : 0,
-        JSON.stringify(bill.baleNumbers),
-        bill.totalAmount
-      ]);
-      
-      const billId = billResult.lastID;
-      
-      for (const item of items) {
+      // Insert items
+      for (const item of validItems) {
         await dbRun(`
           INSERT INTO bill_items (bill_id, size, product_name, quantity, rate, amount, bale_number)
           VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [billId, item.size, item.productName, item.quantity, item.rate, item.amount, item.baleNumber]);
+        `, [billId, item.size || '', item.productName || '', Number(item.quantity) || 0, Number(item.rate) || 0, Number(item.amount) || 0, item.baleNumber || '']);
       }
       
       await dbRun('COMMIT');

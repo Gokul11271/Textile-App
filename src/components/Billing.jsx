@@ -349,23 +349,39 @@ export function Billing() {
 
   const handleSave = async (silent = false) => {
     try {
-      if (!billData.billNumber || !billData.partyName) {
-        alert('Please fill Bill Number and Party Name');
+      if (!billData.billNumber) {
+        alert('Please enter a Bill Number.');
+        billNoRef.current?.focus();
+        return false;
+      }
+      if (!billData.partyName && !billData.partyShortName) {
+        alert('Please select or enter a Party Name.');
+        partyNameRef.current?.focus();
+        return false;
+      }
+
+      // Check at least one valid item exists
+      const hasValidItem = items.some(item => 
+        (item.productName && item.productName.trim()) || Number(item.quantity) > 0 || Number(item.rate) > 0
+      );
+      if (!hasValidItem) {
+        alert('Please add at least one line item with a product name, quantity, or rate.');
+        firstItemSizeRef.current?.focus();
         return false;
       }
 
       if (window.electron && window.electron.db) {
         await window.electron.db.saveBill(billData, items);
-        if (!silent) alert('Bill saved successfully!');
+        loadStats(); // Refresh stats after save
+        if (!silent) alert('✅ Bill ' + billData.billNumber + ' saved successfully!');
         return true;
       } else {
-        console.warn('Database not available. Action was not saved.');
-        if (!silent) alert('Database not connected. Your changes were not saved locally.');
-        return true;
+        alert('⚠️ Database not connected. Please restart the application.');
+        return false;
       }
     } catch (error) {
-      console.error(error);
-      alert('Error saving bill: ' + error.message);
+      console.error('Save error:', error);
+      alert('❌ Error saving bill: ' + (error.message || 'Unknown error'));
       return false;
     }
   };
@@ -375,11 +391,36 @@ export function Billing() {
       const saved = await handleSave(true);
       if (!saved) return;
       
-      const pdfPath = await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big');
-      alert('Bill saved and PDF generated successfully at: ' + pdfPath);
+      const generatedPaths = [];
+
+      // Generate Transport PDF copies
+      const transportCount = printCopies.transport || 1;
+      for (let i = 0; i < transportCount; i++) {
+        const transportPath = await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'transport');
+        if (i === 0) generatedPaths.push(transportPath);
+      }
+
+      // Generate Big Print PDF copies
+      const bigCount = printCopies.big || 1;
+      for (let i = 0; i < bigCount; i++) {
+        const bigPath = await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big');
+        if (i === 0) generatedPaths.push(bigPath);
+      }
+
+      // Print transport copies
+      for (let i = 0; i < transportCount; i++) {
+        await window.electron.ipcRenderer.invoke('print-bill', billData, items, 'transport');
+      }
+
+      // Print big copies
+      for (let i = 0; i < bigCount; i++) {
+        await window.electron.ipcRenderer.invoke('print-bill', billData, items, 'big');
+      }
+
+      alert(`✅ Bill ${billData.billNumber} saved & generated!\n📁 ${generatedPaths.join('\n📁 ')}`);
     } catch (error) {
       console.error(error);
-      alert('Error in saving/generating bill');
+      alert('❌ Error generating PDF: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -390,20 +431,20 @@ export function Billing() {
 
       const count = printCopies[type] || 1;
       for (let i = 0; i < count; i++) {
-        const pdfPath = await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, type);
+        await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, type);
         const printResult = await window.electron.ipcRenderer.invoke('print-bill', billData, items, type);
 
         if (i === 0) {
           if (printResult.success) {
-            alert(`${type === 'big' ? 'Bill' : 'Transport Copy'} sent to printer and saved as PDF.`);
+            alert(`✅ ${type === 'big' ? 'Bill' : 'Transport Copy'} sent to printer (${count} ${count > 1 ? 'copies' : 'copy'}).`);
           } else if (printResult.error !== 'cancelled') {
-            alert(`PDF saved at: ${pdfPath}, but print failed: ${printResult.error}`);
+            alert(`⚠️ PDF saved, but print failed: ${printResult.error}`);
           }
         }
       }
     } catch (error) {
       console.error(error);
-      alert('Error in printing system');
+      alert('❌ Error in printing: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -411,9 +452,16 @@ export function Billing() {
     const saved = await handleSave(true);
     if (!saved) return;
 
+    // Generate big bill PDF
     const bigCount = printCopies.big || 1;
     for (let i = 0; i < bigCount; i++) {
       await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big');
+    }
+
+    // Also generate transport copy PDF
+    const transportCount = printCopies.transport || 1;
+    for (let i = 0; i < transportCount; i++) {
+      await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'transport');
     }
 
     const currentNo = billData.billNumber;
