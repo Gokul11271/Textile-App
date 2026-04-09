@@ -6,7 +6,8 @@ import {
   FileText,
   TrendingUp, 
   CreditCard,
-  Printer
+  Printer,
+  Trash2
 } from 'lucide-react';
 
 export function Reports({ theme }) {
@@ -107,6 +108,23 @@ export function Reports({ theme }) {
       alert('Batch print failed. Check console for details.');
     } finally {
       setPrinting(false);
+    }
+  };
+
+  const handleDeleteBill = async (billNumber) => {
+    if (window.confirm(`Are you sure you want to delete bill ${billNumber}? This action cannot be undone.`)) {
+      try {
+        const result = await window.electron.ipcRenderer.invoke('delete-bill', billNumber);
+        if (result.success) {
+          alert('✅ Bill deleted successfully');
+          // Update local state instead of full refetch for better UX
+          setBills(prev => prev.filter(b => b.bill_number !== billNumber));
+        } else {
+          alert('❌ Failed to delete bill: ' + result.error);
+        }
+      } catch (error) {
+        alert('❌ Error deleting bill: ' + error.message);
+      }
     }
   };
 
@@ -318,7 +336,7 @@ export function Reports({ theme }) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-m3-surface-container border-b border-m3-outline-variant">
-                {['Date', 'Bill No', 'Party', 'GST No', 'Taxable', 'GST', 'Total'].map((label, i) => (
+                {['Date', 'Bill No', 'Party', 'GST No', 'Taxable', 'GST', 'Total', 'Action'].map((label, i) => (
                   <th key={i} className="px-6 py-3.5 m3-label-medium text-m3-on-surface-variant">
                     {label}
                   </th>
@@ -328,7 +346,7 @@ export function Reports({ theme }) {
             <tbody className="divide-y divide-m3-outline-variant/50">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-16 text-center">
+                  <td colSpan="8" className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <div className="w-10 h-10 rounded-full border-3 border-m3-primary/30 border-t-m3-primary animate-spin"></div>
                       <p className="m3-body-medium text-m3-on-surface-variant">Loading Data...</p>
@@ -337,7 +355,7 @@ export function Reports({ theme }) {
                 </tr>
               ) : filteredBills.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-16 text-center">
+                  <td colSpan="8" className="px-6 py-16 text-center">
                     <p className="m3-body-large text-m3-on-surface-variant/50">No records found</p>
                   </td>
                 </tr>
@@ -364,6 +382,15 @@ export function Reports({ theme }) {
                       </td>
                       <td className="px-6 py-4 m3-label-large font-mono text-m3-primary font-medium">
                         ₹{bill.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => handleDeleteBill(bill.bill_number)}
+                          className="p-1.5 rounded-full text-m3-on-surface-variant hover:bg-m3-error/10 hover:text-m3-error transition-all"
+                          title="Delete Bill"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </td>
                     </tr>
                   );

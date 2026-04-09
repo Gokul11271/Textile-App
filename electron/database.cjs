@@ -52,8 +52,9 @@ const dbExec = (query) => {
 
 // Initialize schema
 async function initDatabase() {
-  // Enable WAL mode for better concurrency
+  // Enable WAL mode for better concurrency and Foreign Keys for cascade deletes
   await dbExec('PRAGMA journal_mode=WAL');
+  await dbExec('PRAGMA foreign_keys = ON');
 
   // Check if customers table exists
   const tableCheck = await dbAll("SELECT name FROM sqlite_master WHERE type='table' AND name='customers'");

@@ -32,6 +32,7 @@ export function Billing() {
     isBaleEnabled: false,
     isBaleSyncEnabled: false,
     baleNumbers: ['', '', '', '', '', '', '', ''],
+    financialYear: '',
     totalAmount: 0,
     subtotal: 0
   })
@@ -46,6 +47,7 @@ export function Billing() {
   ])
 
   const [stats, setStats] = useState({ totalBills: 0, lastBillNo: 'N/A', totalBales: 0 })
+  const [products, setProducts] = useState([])
   const [parties, setParties] = useState([])
   const [agents, setAgents] = useState([])
   const [partyIndex, setPartyIndex] = useState(-1)
@@ -73,12 +75,12 @@ export function Billing() {
         }
       });
       loadStats()
+      window.electron.db.getProducts && window.electron.db.getProducts().then(data => setProducts(data || []))
       window.electron.db.getLastBillNumber().then(lastNo => {
         if (lastNo) {
-          const nextNo = lastNo.replace(/\d+$/, (n) => (parseInt(n) + 1).toString().padStart(n.length, '0'));
-          setBillData(prev => ({ ...prev, billNumber: nextNo }))
+          setBillData(prev => ({ ...prev, billNumber: (parseInt(lastNo) + 1).toString() }))
         } else {
-          setBillData(prev => ({ ...prev, billNumber: 'INV-1001' }))
+          setBillData(prev => ({ ...prev, billNumber: '1' }))
         }
       })
     }
@@ -229,6 +231,8 @@ export function Billing() {
         idLabel = 'Aadhaar Number';
       }
 
+      const isInterState = !(party.state && party.state.toLowerCase().includes('tamil nadu'));
+
       setBillData(prev => ({
         ...prev,
         partyId: party.id,
@@ -236,7 +240,8 @@ export function Billing() {
         partyName: party.name,
         partyAddress: party.address,
         partyGst: idNumber,
-        partyIdLabel: idLabel
+        partyIdLabel: idLabel,
+        isInterState
       }))
     } else {
       setBillData(prev => ({ ...prev, partyName: selection, partyShortName: selection }))
@@ -319,8 +324,27 @@ export function Billing() {
 
   const handleDelete = async () => {
     if (!billData.billNumber) return;
-    if (window.confirm('Are you sure you want to delete this bill?')) {
-      alert('Delete function pending database implementation');
+    if (window.confirm(`Are you sure you want to delete bill ${billData.billNumber}?`)) {
+      try {
+        const result = await window.electron.ipcRenderer.invoke('delete-bill', billData.billNumber);
+        if (result.success) {
+          alert('✅ Bill deleted successfully');
+          loadStats();
+          // After delete, clear the form but maybe suggest the next number or just refresh
+          window.electron.db.getLastBillNumber().then(lastNo => {
+            if (lastNo) {
+              const nextNo = (parseInt(lastNo) + 1).toString();
+              resetForm(nextNo);
+            } else {
+              resetForm('1');
+            }
+          });
+        } else {
+          alert('❌ Failed to delete bill: ' + result.error);
+        }
+      } catch (error) {
+        alert('❌ Error deleting bill: ' + error.message);
+      }
     }
   }
 
@@ -347,6 +371,7 @@ export function Billing() {
       isBaleEnabled: false,
       isBaleSyncEnabled: false,
       baleNumbers: ['', '', '', '', '', '', '', ''],
+      financialYear: '',
       totalAmount: 0,
       subtotal: 0
     })
@@ -377,7 +402,11 @@ export function Billing() {
       }
 
       if (window.electron && window.electron.db) {
-        await window.electron.db.saveBill(billData, items);
+        const savedResult = await window.electron.db.saveBill(billData, items);
+        if (savedResult && savedResult.billNumber) {
+          setBillData(prev => ({ ...prev, billNumber: savedResult.billNumber }));
+          billData.billNumber = savedResult.billNumber; // Mutation important for handleSaveAndGenerate scope
+        }
         loadStats(); // Refresh stats after save
         if (!silent) alert('✅ Bill ' + billData.billNumber + ' saved successfully!');
         return true;
@@ -470,18 +499,20 @@ export function Billing() {
       await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'transport');
     }
 
-    const currentNo = billData.billNumber;
-    const nextNo = currentNo.replace(/\d+$/, (n) => (parseInt(n) + 1).toString().padStart(n.length, '0'));
-
-    resetForm(nextNo);
+    window.electron.db.getLastBillNumber().then(lastNo => {
+      const nextNo = lastNo ? (parseInt(lastNo) + 1).toString() : '1';
+      resetForm(nextNo);
+    });
   };
 
-  /* M3 Input base style */
   const inputBase = "w-full rounded-md px-3 py-2 m3-body-medium bg-m3-surface-container-highest border border-m3-outline-variant text-m3-on-surface placeholder:text-m3-on-surface-variant/50 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary/30 transition-all duration-200";
   const labelBase = "m3-label-medium text-m3-on-surface-variant mb-1 block";
 
   return (
     <div className="h-[calc(100vh-5rem)] flex flex-col overflow-hidden animate-in fade-in duration-500 font-sans">
+      <datalist id="products-list">
+        {products.map((p, i) => <option key={i} value={p} />)}
+      </datalist>
       {/* Header Actions */}
       <div className="flex justify-between items-center mb-4 flex-shrink-0">
         <div>
@@ -577,17 +608,27 @@ export function Billing() {
             <h3 className="m3-title-small text-m3-on-surface border-b border-m3-outline-variant pb-3">Invoice Metadata</h3>
             <div className="space-y-3">
               <div>
-                <label className={labelBase}>Bill Number</label>
-                <div className="flex gap-1.5">
+                <label className={labelBase}>Bill Number & FY</label>
+                <div className="flex gap-1.5 flex-wrap">
                   <input
                     type="text"
                     ref={billNoRef}
                     value={billData.billNumber}
-                    onChange={e => setBillData({ ...billData, billNumber: e.target.value })}
+                    onChange={e => setBillData({ ...billData, billNumber: e.target.value.replace(/\D/g,'') })} /* strict numeric */
                     onKeyDown={e => e.key === 'Enter' && dateRef.current?.focus()}
-                    className={`${inputBase} font-mono`}
-                    placeholder="DT-000"
+                    className={`${inputBase} font-mono w-24`}
+                    placeholder="Auto"
                   />
+                  <select
+                    value={billData.financialYear}
+                    onChange={e => setBillData({ ...billData, financialYear: e.target.value })}
+                    className={`${inputBase} flex-1`}
+                  >
+                    <option value="">No FY</option>
+                    <option value="2024-2025">2024-2025</option>
+                    <option value="2025-2026">2025-2026</option>
+                    <option value="2026-2027">2026-2027</option>
+                  </select>
                   <button onClick={handleQuickFill} className="p-2.5 rounded-md bg-m3-surface-container-high text-m3-on-surface-variant hover:bg-m3-primary-container hover:text-m3-on-primary-container transition-colors">
                     <Search size={16} />
                   </button>
@@ -749,6 +790,7 @@ export function Billing() {
                     <td className="px-4 py-1.5">
                       <input
                         type="text"
+                        list="products-list"
                         value={item.productName}
                         onChange={e => handleItemChange(item.id, 'productName', e.target.value)}
                         onKeyDown={e => handleKeyDown(e, idx)}

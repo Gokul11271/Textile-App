@@ -159,8 +159,22 @@ const Parties = () => {
     return matchesSearch && matchesCity;
   });
 
+  const allCities = [...new Set((parties || []).map(p => p.city).filter(Boolean))].sort();
+  const allStates = [...new Set([
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", 
+    "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", 
+    "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", 
+    "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", ...((parties || []).map(p => p.state).filter(Boolean))
+  ])].sort();
+
   return (
     <div className="font-sans min-h-full transition-colors duration-300">
+      <datalist id="city-list">
+        {allCities.map((c, i) => <option key={`c-${i}`} value={c} />)}
+      </datalist>
+      <datalist id="state-list">
+        {allStates.map((s, i) => <option key={`s-${i}`} value={s} />)}
+      </datalist>
       <div className="w-full mx-auto animate-in fade-in duration-500">
         {/* Page Header */}
         <div className="flex items-center gap-3 mb-6">
@@ -309,11 +323,11 @@ const Parties = () => {
               <div className="md:col-span-2 grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <label className={labelBase}>City</label>
-                  <input type="text" name="city" value={formData.city} onChange={handleInputChange} className={inputBase} placeholder="Salem" />
+                  <input type="text" list="city-list" name="city" value={formData.city} onChange={handleInputChange} className={inputBase} placeholder="Salem" />
                 </div>
                 <div>
                   <label className={labelBase}>State</label>
-                  <input type="text" name="state" value={formData.state} onChange={handleInputChange} className={inputBase} placeholder="Tamil Nadu" />
+                  <input type="text" list="state-list" name="state" value={formData.state} onChange={handleInputChange} className={inputBase} placeholder="Tamil Nadu" />
                 </div>
                 <div>
                   <label className={labelBase}>Opening Balance</label>

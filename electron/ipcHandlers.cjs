@@ -163,7 +163,7 @@ function setupIpcHandlers() {
                 </div>
                 <div class="meta-area">
                   <div class="invoice-title">
-                    <span>#${b.billNumber.replace(/^[^\d]*/, '')}</span>
+                    <span>#${b.billNumber.replace(/^[^\d]*/, '')}${bill.financialYear ? ` (${bill.financialYear})` : ''}</span>
                     <span style="font-size: 9pt; opacity: 0.6;">INVOICE</span>
                   </div>
                   <div class="meta-row"><span>DATE</span> <span>${b.date}</span></div>
@@ -288,201 +288,277 @@ function setupIpcHandlers() {
         </html>
       `;
     } else {
-      // Transport Copy - Same layout as big bill but without Agent, Bank details, and Discount
+      // Transport Copy - 2 copies on a single A4 page
       const transportSubtotal = subtotal; // No discount applied for transport copy
       const transportNetAmount = transportSubtotal; // Skip discount
       const transportTaxAmt = (transportNetAmount * (taxRate || 0)) / 100;
       const transportTotal = transportNetAmount + transportTaxAmt;
       const transportSplitTaxAmount = (transportTaxAmt / 2).toFixed(2);
 
+      const copyLabel1 = "Transport Copy 1";
+      const copyLabel2 = "Transport Copy 2";
+
+      const renderCopy = (label) => `
+        <div class="copy-section">
+          <div class="vertical-label">${label}</div>
+          <div class="copy-content">
+            <div class="header-section">
+              <div class="brand-area">
+                <h1>${company.name}</h1>
+                <p>${company.address1}</p>
+                <p>${company.address2}</p>
+                <p style="color:#000; margin-top:8px;">GSTIN: ${company.gst}</p>
+              </div>
+              <div class="meta-area">
+                <div class="invoice-title">
+                  <span>#${b.billNumber.replace(/^[^\d]*/, '')}${bill.financialYear ? ` (${bill.financialYear})` : ''}</span>
+                  <span style="font-size: 9pt; opacity: 0.6;">TRANSPORT</span>
+                </div>
+                <div class="meta-row"><span>DATE</span> <span>${b.date}</span></div>
+                <div class="meta-row"><span>CONTACT</span> <span>${company.phone}</span></div>
+              </div>
+            </div>
+            
+            ${showBankOnTransport ? `
+            <div class="info-bar">
+              <div class="info-item" style="flex: 1;">BANK: ${company.bankName}</div>
+              <div class="info-item" style="flex: 1.2;">A/C: ${company.accNo}</div>
+              <div class="info-item" style="flex: 0.8;">IFSC: ${company.ifsc}</div>
+            </div>` : ''}
+            
+            <div class="party-section">
+              <div class="section-label">Bill To</div>
+              <div class="party-name">${b.partyName}</div>
+              <div class="party-address highlighted">${b.partyAddress}</div>
+              ${b.partyGst ? `<div class="party-gst"><span class="highlighted">GSTIN/ID: ${formatGst(b.partyGst)}</span></div>` : ''}
+            </div>
+            
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 15%; border-left: none;">SIZE</th>
+                  <th style="width: 45%;">PARTICULARS (HSN 6304)</th>
+                  <th style="width: 10%;" class="text-center">QTY</th>
+                  <th style="width: 12%;" class="text-center">RATE</th>
+                  <th style="width: 18%; border-right: none;" class="text-right">AMOUNT</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map(item => `
+                  <tr>
+                    <td class="text-center" style="border-left: none;">${item.size || '-'}</td>
+                    <td>100% COTTON CLOTH</td>
+                    <td class="text-center">${item.quantity}</td>
+                    <td class="text-center">${Number(item.rate || 0).toFixed(2)}</td>
+                    <td class="text-right" style="border-right: none;">${Number(item.amount || 0).toFixed(2)}</td>
+                  </tr>
+                `).join('')}
+                ${Array(Math.max(0, 8 - items.length)).fill(0).map(() => `
+                  <tr style="height: 22px;">
+                    <td style="border-left: none;"></td><td></td><td></td><td></td><td style="border-right: none;"></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            
+            <div class="calc-grid">
+              <div class="calc-notes">
+                <div class="section-label">Notes / Conditions</div>
+                ${company.terms}
+              </div>
+              <div class="calc-table">
+                <div class="calc-row">
+                  <div class="calc-label">Total Qty</div>
+                  <div class="calc-value">${items.reduce((sum, i) => sum + Number(i.quantity || 0), 0)}</div>
+                </div>
+                <div class="calc-row">
+                  <div class="calc-label">Sub Total</div>
+                  <div class="calc-value">₹ ${transportSubtotal.toFixed(2)}</div>
+                </div>
+                
+                ${isLocal ? `
+                <div class="calc-row" style="flex-direction: column;">
+                  <div style="display:flex; width:100%; border-bottom: 0.5pt solid #000;">
+                    <div class="calc-label" style="border-bottom: none;">CGST (${splitTaxRate}%)</div>
+                    <div class="calc-value">${transportSplitTaxAmount}</div>
+                  </div>
+                  <div style="display:flex; width:100%;">
+                    <div class="calc-label" style="border-bottom: none;">SGST (${splitTaxRate}%)</div>
+                    <div class="calc-value">${transportSplitTaxAmount}</div>
+                  </div>
+                </div>
+                ` : `
+                <div class="calc-row">
+                  <div class="calc-label">IGST (${taxRate}%)</div>
+                  <div class="calc-value">${transportTaxAmt.toFixed(2)}</div>
+                </div>
+                `}
+              </div>
+            </div>
+            
+            <div class="total-strip">
+              <div style="display:flex; flex-direction:column; gap:4px;">
+                <div class="total-label">NET PAYABLE AMOUNT</div>
+                <div style="font-size: 8pt; font-weight: 600; text-transform: capitalize; letter-spacing: 0.5px;">Rupees ${numberToWords(transportTotal)}</div>
+              </div>
+              <div class="total-amount">₹ ${transportTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+            </div>
+            
+            <div class="footer-section">
+              <div class="shipping-details">
+                <div class="section-label">Logistics Details</div>
+                <div style="display: flex; gap: 20px; font-weight: 800; font-size: 9pt; margin-top: 5px;">
+                  <span>LORRY: ${b.lorryOffice || 'Local'}</span>
+                  <span>LR NO: ${b.lrNumber || 'N/A'}</span>
+                </div>
+                <div style="margin-top: 10px;">
+                  <div class="section-label" style="font-size: 6pt;">Bale Tracking (Sync)</div>
+                  <div class="bale-grid">
+                    ${(() => {
+                      const bales = Array.isArray(b.baleNumbers) ? b.baleNumbers : JSON.parse(b.baleNumbers || '[]');
+                      return bales.concat(Array(8).fill('')).slice(0, 8).map(b_str => `<div class="bale-item highlighted">${b_str}</div>`).join('');
+                    })()}
+                  </div>
+                </div>
+              </div>
+              <div class="signature-area">
+                <div class="sig-title">For ${company.name}</div>
+                <div style="border-top: 1pt dashed #ccc; padding-top: 5px; font-size: 8pt; font-weight: 900;">AUTHORISED SIGNATORY</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
       return `
         <html>
           <head>
             <style>
-              @page { margin: 8mm; }
+              @page { size: A4 portrait; margin: 0; }
+              @media print {
+                html, body {
+                  width: 210mm;
+                  height: 297mm;
+                  margin: 0;
+                  padding: 0;
+                  background: white;
+                }
+              }
               body { 
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
                 margin: 0; padding: 0; color: #1a1a1a; line-height: 1.3;
+                background: white;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                width: 210mm;
+                height: 297mm;
               }
-              .container { border: 1.2pt solid #000; padding: 0; width: 100%; box-sizing: border-box; }
               
-              /* Professional Header */
+              .copy-section {
+                height: 50%;
+                width: 100%;
+                box-sizing: border-box;
+                padding: 6mm;
+                display: flex;
+                position: relative;
+                page-break-inside: avoid;
+              }
+              
+              .vertical-label {
+                writing-mode: vertical-rl;
+                transform: rotate(180deg);
+                text-align: center;
+                font-size: 9pt;
+                font-weight: 900;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+                padding: 10px 5px;
+                background: #000;
+                color: #fff;
+                border: 1.2pt solid #000;
+                border-right: none;
+                flex-shrink: 0;
+              }
+              
+              .copy-content {
+                flex-grow: 1;
+                border: 1.2pt solid #000;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+              }
+
+              .divider {
+                width: 100%;
+                height: 0;
+                border-top: 2pt dashed #999;
+                margin: 0;
+                position: absolute;
+                top: 50%;
+                left: 0;
+                z-index: 10;
+              }
+              
+              .highlighted {
+                background-color: #ffeb3b !important;
+                font-weight: bold !important;
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+
+              /* Reuse existing component styles */
               .header-section { display: flex; border-bottom: 2pt solid #000; background: #fff; }
-              .brand-area { flex: 1.8; padding: 15px; border-right: 1.2pt solid #000; }
-              .brand-area h1 { margin: 0; font-size: 22pt; font-weight: 900; color: #000; letter-spacing: -0.5px; }
-              .brand-area p { margin: 3px 0; font-size: 9pt; font-weight: 600; color: #444; text-transform: uppercase; }
+              .brand-area { flex: 1.8; padding: 10px 15px; border-right: 1.2pt solid #000; }
+              .brand-area h1 { margin: 0; font-size: 18pt; font-weight: 900; color: #000; letter-spacing: -0.5px; }
+              .brand-area p { margin: 2px 0; font-size: 8pt; font-weight: 600; color: #444; text-transform: uppercase; }
               
-              .meta-area { flex: 1; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; }
-              .invoice-title { font-size: 14pt; font-weight: 900; display: flex; justify-content: space-between; border-bottom: 1pt solid #000; padding-bottom: 5px; margin-bottom: 10px; }
-              .meta-row { display: flex; justify-content: space-between; font-size: 9pt; margin-bottom: 4px; font-weight: 700; }
+              .meta-area { flex: 1; padding: 10px 15px; display: flex; flex-direction: column; justify-content: space-between; }
+              .invoice-title { font-size: 12pt; font-weight: 900; display: flex; justify-content: space-between; border-bottom: 1pt solid #000; padding-bottom: 5px; margin-bottom: 6px; }
+              .meta-row { display: flex; justify-content: space-between; font-size: 8pt; margin-bottom: 3px; font-weight: 700; }
               
-              /* Party Details */
-              .party-section { padding: 12px 15px; border-bottom: 1.2pt solid #000; }
+              .info-bar { display: flex; border-bottom: 1.2pt solid #000; background: #f9f9f9; font-size: 7.5pt; font-weight: 800; }
+              .info-item { padding: 4px 10px; border-right: 1pt solid #000; }
+              .info-item:last-child { border-right: none; }
+              
+              .party-section { padding: 8px 15px; border-bottom: 1.2pt solid #000; }
               .section-label { font-size: 7pt; font-weight: 900; color: #666; text-transform: uppercase; margin-bottom: 4px; }
-              .party-name { font-size: 13pt; font-weight: 800; margin-bottom: 2px; }
-              .party-address { font-size: 9.5pt; font-weight: 500; color: #333; max-width: 80%; }
-              .party-gst { margin-top: 5px; font-weight: 800; font-size: 9pt; }
+              .party-name { font-size: 11pt; font-weight: 800; margin-bottom: 2px; }
+              .party-address { font-size: 8.5pt; font-weight: 500; color: #333; max-width: 80%; display: inline-block; padding: 1px 4px; border-radius: 2px; }
+              .party-gst { margin-top: 5px; font-weight: 800; font-size: 8pt; display: inline-block; padding: 1px 4px; border-radius: 2px; }
               
-              /* Table Styling */
               table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-              th { background: #000; color: #fff; font-size: 8.5pt; padding: 8px 10px; text-align: left; border: 0.5pt solid #000; }
-              td { padding: 8px 10px; border: 0.5pt solid #000; font-size: 10pt; font-weight: 600; }
+              th { background: #000; color: #fff; font-size: 8pt; padding: 5px 8px; text-align: left; border: 0.5pt solid #000; }
+              td { padding: 5px 8px; border: 0.5pt solid #000; font-size: 9pt; font-weight: 600; }
               .text-right { text-align: right; }
               .text-center { text-align: center; }
               
-              /* Calculation Area */
-              .calc-grid { display: flex; border-bottom: 1.2pt solid #000; }
-              .calc-notes { flex: 1.5; padding: 10px; border-right: 1.2pt solid #000; font-size: 8pt; color: #666; font-style: italic; }
+              .calc-grid { display: flex; border-bottom: 1.2pt solid #000; flex-grow: 1; }
+              .calc-notes { flex: 1.5; padding: 8px; border-right: 1.2pt solid #000; font-size: 7.5pt; color: #666; font-style: italic; }
               .calc-table { flex: 1; }
               .calc-row { display: flex; border-bottom: 0.5pt solid #000; }
               .calc-row:last-child { border-bottom: none; }
-              .calc-label { flex: 1.5; padding: 6px 10px; font-size: 8.5pt; font-weight: 800; text-transform: uppercase; border-right: 0.5pt solid #000; background: #fdfdfd; }
-              .calc-value { flex: 1; padding: 6px 10px; font-size: 9.5pt; font-weight: 800; text-align: right; }
+              .calc-label { flex: 1.5; padding: 4px 8px; font-size: 7.5pt; font-weight: 800; text-transform: uppercase; border-right: 0.5pt solid #000; background: #fdfdfd; }
+              .calc-value { flex: 1; padding: 4px 8px; font-size: 8.5pt; font-weight: 800; text-align: right; }
               
-              /* Grande Total */
-              .total-strip { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: #000; color: #fff; }
-              .total-label { font-size: 10pt; font-weight: 900; letter-spacing: 2px; }
-              .total-amount { font-size: 20pt; font-weight: 900; }
+              .total-strip { display: flex; justify-content: space-between; align-items: center; padding: 8px 15px; background: #000; color: #fff; }
+              .total-label { font-size: 9pt; font-weight: 900; letter-spacing: 1px; }
+              .total-amount { font-size: 16pt; font-weight: 900; }
               
-              /* Footer Area */
-              .footer-section { display: flex; height: 90px; }
-              .shipping-details { flex: 2; padding: 10px; border-right: 1.2pt solid #000; border-top: 1.2pt solid #000; }
-              .signature-area { flex: 1; padding: 15px; text-align: center; border-top: 1.2pt solid #000; display: flex; flex-direction: column; justify-content: space-between; }
-              .sig-title { font-size: 7.5pt; font-weight: 900; text-transform: uppercase; }
+              .footer-section { display: flex; height: 75px; }
+              .shipping-details { flex: 2; padding: 8px; border-right: 1.2pt solid #000; border-top: 1.2pt solid #000; }
+              .signature-area { flex: 1; padding: 10px; text-align: center; border-top: 1.2pt solid #000; display: flex; flex-direction: column; justify-content: space-between; }
+              .sig-title { font-size: 7pt; font-weight: 900; text-transform: uppercase; }
               
-              .bale-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-top: 5px; }
-              .bale-item { border: 1pt solid #000; text-align: center; font-size: 8pt; font-weight: 900; padding: 2px 0; background: #f9f9f9; }
+              .bale-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; margin-top: 4px; }
+              .bale-item { border: 1pt solid #000; text-align: center; font-size: 8pt; font-weight: 900; padding: 2px 0; background: #f9f9f9; border-radius: 2px; }
             </style>
           </head>
           <body>
-            <div class="container">
-              <div style="background: #000; color: #fff; padding: 3px 15px; font-size: 7pt; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">Transport Copy - For Transporter</div>
-              
-              <div class="header-section">
-                <div class="brand-area">
-                  <h1>${company.name}</h1>
-                  <p>${company.address1}</p>
-                  <p>${company.address2}</p>
-                  <p style="color:#000; margin-top:8px;">GSTIN: ${company.gst}</p>
-                </div>
-                <div class="meta-area">
-                  <div class="invoice-title">
-                    <span>#${b.billNumber.replace(/^[^\d]*/, '')}</span>
-                    <span style="font-size: 9pt; opacity: 0.6;">TRANSPORT</span>
-                  </div>
-                  <div class="meta-row"><span>DATE</span> <span>${b.date}</span></div>
-                  <div class="meta-row"><span>CONTACT</span> <span>${company.phone}</span></div>
-                </div>
-              </div>
-              
-              ${showBankOnTransport ? `
-              <div class="info-bar">
-                <div class="info-item" style="flex: 1;">BANK: ${company.bankName}</div>
-                <div class="info-item" style="flex: 1.2;">A/C: ${company.accNo}</div>
-                <div class="info-item" style="flex: 0.8;">IFSC: ${company.ifsc}</div>
-              </div>` : ''}
-              
-              <div class="party-section">
-                <div class="section-label">Bill To</div>
-                <div class="party-name">${b.partyName}</div>
-                <div class="party-address">${b.partyAddress}</div>
-                ${b.partyGst ? `<div class="party-gst">GSTIN/ID: ${formatGst(b.partyGst)}</div>` : ''}
-              </div>
-              
-              <table>
-                <thead>
-                  <tr>
-                    <th style="width: 15%; border-left: none;">SIZE</th>
-                    <th style="width: 45%;">PARTICULARS (HSN 6304)</th>
-                    <th style="width: 10%;" class="text-center">QTY</th>
-                    <th style="width: 12%;" class="text-center">RATE</th>
-                    <th style="width: 18%; border-right: none;" class="text-right">AMOUNT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${items.map(item => `
-                    <tr>
-                      <td class="text-center" style="border-left: none;">${item.size || '-'}</td>
-                      <td>${item.productName}</td>
-                      <td class="text-center">${item.quantity}</td>
-                      <td class="text-center">${Number(item.rate || 0).toFixed(2)}</td>
-                      <td class="text-right" style="border-right: none;">${Number(item.amount || 0).toFixed(2)}</td>
-                    </tr>
-                  `).join('')}
-                  ${Array(Math.max(0, 12 - items.length)).fill(0).map(() => `
-                    <tr style="height: 22px;">
-                      <td style="border-left: none;"></td><td></td><td></td><td></td><td style="border-right: none;"></td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-              
-              <div class="calc-grid">
-                <div class="calc-notes">
-                  <div class="section-label">Notes / Conditions</div>
-                  ${company.terms}
-                </div>
-                <div class="calc-table">
-                  <div class="calc-row">
-                    <div class="calc-label">Total Qty</div>
-                    <div class="calc-value">${items.reduce((sum, i) => sum + Number(i.quantity || 0), 0)}</div>
-                  </div>
-                  <div class="calc-row">
-                    <div class="calc-label">Sub Total</div>
-                    <div class="calc-value">₹ ${transportSubtotal.toFixed(2)}</div>
-                  </div>
-                  
-                  ${isLocal ? `
-                  <div class="calc-row" style="flex-direction: column;">
-                    <div style="display:flex; width:100%; border-bottom: 0.5pt solid #000;">
-                      <div class="calc-label" style="border-bottom: none;">CGST (${splitTaxRate}%)</div>
-                      <div class="calc-value">${transportSplitTaxAmount}</div>
-                    </div>
-                    <div style="display:flex; width:100%;">
-                      <div class="calc-label" style="border-bottom: none;">SGST (${splitTaxRate}%)</div>
-                      <div class="calc-value">${transportSplitTaxAmount}</div>
-                    </div>
-                  </div>
-                  ` : `
-                  <div class="calc-row">
-                    <div class="calc-label">IGST (${taxRate}%)</div>
-                    <div class="calc-value">${transportTaxAmt.toFixed(2)}</div>
-                  </div>
-                  `}
-                </div>
-              </div>
-              
-              <div class="total-strip">
-                <div style="display:flex; flex-direction:column; gap:4px;">
-                  <div class="total-label">NET PAYABLE AMOUNT</div>
-                  <div style="font-size: 8pt; font-weight: 600; text-transform: capitalize; letter-spacing: 0.5px;">Rupees ${numberToWords(transportTotal)}</div>
-                </div>
-                <div class="total-amount">₹ ${transportTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-              </div>
-              
-              <div class="footer-section">
-                <div class="shipping-details">
-                  <div class="section-label">Logistics Details</div>
-                  <div style="display: flex; gap: 20px; font-weight: 800; font-size: 9pt; margin-top: 5px;">
-                    <span>LORRY: ${b.lorryOffice || 'Local'}</span>
-                    <span>LR NO: ${b.lrNumber || 'N/A'}</span>
-                  </div>
-                  <div style="margin-top: 10px;">
-                    <div class="section-label" style="font-size: 6pt;">Bale Tracking (Sync)</div>
-                    <div class="bale-grid">
-                      ${(() => {
-                        const bales = Array.isArray(b.baleNumbers) ? b.baleNumbers : JSON.parse(b.baleNumbers || '[]');
-                        return bales.concat(Array(8).fill('')).slice(0, 8).map(b => `<div class="bale-item">${b}</div>`).join('');
-                      })()}
-                    </div>
-                  </div>
-                </div>
-                <div class="signature-area">
-                  <div class="sig-title">For ${company.name}</div>
-                  <div style="border-top: 1pt dashed #ccc; padding-top: 5px; font-size: 8pt; font-weight: 900;">AUTHORISED SIGNATORY</div>
-                </div>
-              </div>
-            </div>
+            ${renderCopy(copyLabel1)}
+            <div class="divider"></div>
+            ${renderCopy(copyLabel2)}
           </body>
         </html>
       `;
@@ -568,9 +644,9 @@ function setupIpcHandlers() {
 
     await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
     
-    // Direct print
+    // Direct print silently
     return new Promise((resolve) => {
-      win.webContents.print({ silent: false, printBackground: true, deviceName: '' }, (success, failureReason) => {
+      win.webContents.print({ silent: true, printBackground: true, deviceName: '' }, (success, failureReason) => {
         win.close();
         if (!success) resolve({ success: false, error: failureReason });
         else resolve({ success: true });
@@ -785,7 +861,11 @@ function setupIpcHandlers() {
         // Delete old items before re-inserting
         await dbRun('DELETE FROM bill_items WHERE bill_id = ?', [billId]);
       } else {
-        // Insert new bill
+        // Enforce strict sequence using MAX of integer cast
+        const row = await dbGet('SELECT MAX(CAST(bill_number AS INTEGER)) as max_no FROM bills');
+        const nextNo = (row && row.max_no ? row.max_no : 0) + 1;
+        const actualBillNumber = nextNo.toString();
+
         const billResult = await dbRun(`
           INSERT INTO bills (
             bill_number, date, agent_id, party_id, 
@@ -796,7 +876,7 @@ function setupIpcHandlers() {
           )
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
-          bill.billNumber,
+          actualBillNumber,
           bill.date,
           bill.agentId || null,
           bill.partyId || null,
@@ -812,6 +892,7 @@ function setupIpcHandlers() {
           bill.totalAmount || 0
         ]);
         billId = billResult.lastID;
+        bill.billNumber = actualBillNumber; // Update for UI return
       }
       
       // Insert items
@@ -823,7 +904,7 @@ function setupIpcHandlers() {
       }
       
       await dbRun('COMMIT');
-      return billId;
+      return { billId, billNumber: bill.billNumber };
     } catch (error) {
       await dbRun('ROLLBACK');
       throw error;
@@ -831,8 +912,13 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('get-last-bill-number', async () => {
-    const row = await dbGet('SELECT bill_number FROM bills ORDER BY id DESC LIMIT 1');
-    return row ? row.bill_number : null;
+    const row = await dbGet('SELECT MAX(CAST(bill_number AS INTEGER)) as max_no FROM bills');
+    return row && row.max_no ? row.max_no.toString() : null;
+  });
+
+  ipcMain.handle('get-products', async () => {
+    const rows = await dbAll('SELECT DISTINCT product_name FROM bill_items WHERE product_name IS NOT NULL AND product_name != ""');
+    return rows.map(r => r.product_name);
   });
 
   ipcMain.handle('get-bill-by-number', async (event, billNumber) => {
@@ -847,6 +933,26 @@ function setupIpcHandlers() {
     if (!bill) return null;
     const items = await dbAll('SELECT * FROM bill_items WHERE bill_id = ?', [bill.id]);
     return { ...bill, items };
+  });
+
+  ipcMain.handle('delete-bill', async (event, billNumber) => {
+    try {
+      const bill = await dbGet('SELECT id FROM bills WHERE bill_number = ?', [billNumber]);
+      if (!bill) return { success: false, error: 'Bill not found' };
+
+      await dbRun('BEGIN TRANSACTION');
+      try {
+        await dbRun('DELETE FROM bill_items WHERE bill_id = ?', [bill.id]);
+        await dbRun('DELETE FROM bills WHERE id = ?', [bill.id]);
+        await dbRun('COMMIT');
+        return { success: true };
+      } catch (e) {
+        await dbRun('ROLLBACK');
+        return { success: false, error: e.message };
+      }
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
   });
 
   // Stats

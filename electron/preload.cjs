@@ -13,5 +13,6 @@ contextBridge.exposeInMainWorld('electron', {
     getLastBillNumber: () => ipcRenderer.invoke('get-last-bill-number'),
     getBillByNumber: (num) => ipcRenderer.invoke('get-bill-by-number', num),
     getDashboardStats: () => ipcRenderer.invoke('get-dashboard-stats'),
+    getProducts: () => ipcRenderer.invoke('get-products'),
   }
 });
