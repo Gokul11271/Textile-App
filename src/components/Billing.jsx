@@ -405,10 +405,15 @@ export function Billing() {
         const savedResult = await window.electron.db.saveBill(billData, items);
         if (savedResult && savedResult.billNumber) {
           setBillData(prev => ({ ...prev, billNumber: savedResult.billNumber }));
-          billData.billNumber = savedResult.billNumber; // Mutation important for handleSaveAndGenerate scope
+          billData.billNumber = savedResult.billNumber; // Mutation important for scope
         }
+
+        // AUTO-GENERATE PDF ON SAVE (Requested fix)
+        // This ensures that even clicking just "Save" creates the file in the folder
+        const pdfPath = await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big');
+
         loadStats(); // Refresh stats after save
-        if (!silent) alert('✅ Bill ' + billData.billNumber + ' saved successfully!');
+        if (!silent) alert('✅ Bill ' + billData.billNumber + ' saved successfully!\n📁 Saved to: ' + pdfPath);
         return true;
       } else {
         alert('⚠️ Database not connected. Please restart the application.');
@@ -465,23 +470,25 @@ export function Billing() {
       if (!saved) return;
 
       const count = printCopies[type] || 1;
+      
+      // Fire and forget printing/generation so user doesn't wait
       for (let i = 0; i < count; i++) {
-        await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, type);
-        const printResult = await window.electron.ipcRenderer.invoke('print-bill', billData, items, type);
-
-        if (i === 0) {
-          if (printResult.success) {
-            alert(`✅ ${type === 'big' ? 'Bill' : 'Transport Copy'} sent to printer (${count} ${count > 1 ? 'copies' : 'copy'}).`);
-          } else if (printResult.error !== 'cancelled') {
-            alert(`⚠️ PDF saved, but print failed: ${printResult.error}`);
-          }
-        }
+        window.electron.ipcRenderer.invoke('generate-pdf', billData, items, type).catch(console.error);
+        window.electron.ipcRenderer.invoke('print-bill', billData, items, type).catch(console.error);
       }
+
+      // Immediately move to next bill
+      window.electron.db.getLastBillNumber().then(lastNo => {
+        const nextNo = lastNo ? (parseInt(lastNo) + 1).toString() : '1';
+        resetForm(nextNo);
+      });
+      
     } catch (error) {
       console.error(error);
       alert('❌ Error in printing: ' + (error.message || 'Unknown error'));
     }
   };
+
 
   const handleUpNext = async () => {
     const saved = await handleSave(true);
@@ -614,21 +621,25 @@ export function Billing() {
                     type="text"
                     ref={billNoRef}
                     value={billData.billNumber}
-                    onChange={e => setBillData({ ...billData, billNumber: e.target.value.replace(/\D/g,'') })} /* strict numeric */
+                    onChange={e => setBillData({ ...billData, billNumber: e.target.value })}
                     onKeyDown={e => e.key === 'Enter' && dateRef.current?.focus()}
                     className={`${inputBase} font-mono w-24`}
                     placeholder="Auto"
                   />
-                  <select
+                  <input
+                    type="text"
+                    list="fy-list"
                     value={billData.financialYear}
                     onChange={e => setBillData({ ...billData, financialYear: e.target.value })}
-                    className={`${inputBase} flex-1`}
-                  >
-                    <option value="">No FY</option>
-                    <option value="2024-2025">2024-2025</option>
-                    <option value="2025-2026">2025-2026</option>
-                    <option value="2026-2027">2026-2027</option>
-                  </select>
+                    className={`${inputBase} flex-1 min-w-[120px]`}
+                    placeholder="FY (e.g. 24-25)"
+                  />
+                  <datalist id="fy-list">
+                    <option value="2023-2024" />
+                    <option value="2024-2025" />
+                    <option value="2025-2026" />
+                    <option value="2026-2027" />
+                  </datalist>
                   <button onClick={handleQuickFill} className="p-2.5 rounded-md bg-m3-surface-container-high text-m3-on-surface-variant hover:bg-m3-primary-container hover:text-m3-on-primary-container transition-colors">
                     <Search size={16} />
                   </button>
