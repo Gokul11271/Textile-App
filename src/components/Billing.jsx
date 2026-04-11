@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Trash2, Save, Printer, FileText, Search, User, Package, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, Save, Printer, FileText, Search, User, Package, ChevronRight, ChevronLeft } from 'lucide-react'
 
 export function Billing() {
   const formatDate = (date) => {
@@ -68,7 +68,7 @@ export function Billing() {
     if (window.electron && window.electron.db) {
       window.electron.db.getParties().then(data => setParties(data || []))
       window.electron.db.getAgents().then(data => setAgents(data || []))
-      
+
       window.electron.ipcRenderer.invoke('get-settings').then(settings => {
         if (settings && settings.defaultTaxRate !== undefined) {
           setBillData(prev => ({ ...prev, taxRate: Number(settings.defaultTaxRate) }));
@@ -248,12 +248,13 @@ export function Billing() {
     }
   }
 
-  const handleQuickFill = async () => {
-    if (!billData.billNumber) return;
-    const oldBill = await window.electron.ipcRenderer.invoke('get-bill-by-number', billData.billNumber.trim());
+  const loadBillByNumber = async (billNoStr) => {
+    if (!billNoStr) return;
+    const oldBill = await window.electron.ipcRenderer.invoke('get-bill-by-number', billNoStr.toString().trim());
     if (oldBill) {
       setBillData(prev => ({
         ...prev,
+        billNumber: oldBill.bill_number ? oldBill.bill_number.toString() : billNoStr,
         agentId: oldBill.agent_id,
         partyId: oldBill.party_id,
         discountPercent: oldBill.discount_percent,
@@ -307,6 +308,18 @@ export function Billing() {
       }
     } else {
       alert('Bill not found');
+    }
+  };
+
+  const handleQuickFill = () => loadBillByNumber(billData.billNumber);
+
+  const handlePreviousBill = () => {
+    if (!billData.billNumber || isNaN(billData.billNumber)) return;
+    const prevNo = parseInt(billData.billNumber) - 1;
+    if (prevNo > 0) {
+      loadBillByNumber(prevNo.toString());
+    } else {
+      alert('No previous bill exists.');
     }
   };
 
@@ -378,7 +391,7 @@ export function Billing() {
     setItems([{ id: Date.now(), size: '', productName: '', quantity: 0, rate: 0, amount: 0, baleNumber: '' }])
   }, [])
 
-  const handleSave = async (silent = false) => {
+  const handleSave = async (silent = false, generateDefaultPdf = true) => {
     try {
       if (!billData.billNumber) {
         alert('Please enter a Bill Number.');
@@ -392,7 +405,7 @@ export function Billing() {
       }
 
       // Check at least one valid item exists
-      const hasValidItem = items.some(item => 
+      const hasValidItem = items.some(item =>
         (item.productName && item.productName.trim()) || Number(item.quantity) > 0 || Number(item.rate) > 0
       );
       if (!hasValidItem) {
@@ -410,10 +423,13 @@ export function Billing() {
 
         // AUTO-GENERATE PDF ON SAVE (Requested fix)
         // This ensures that even clicking just "Save" creates the file in the folder
-        const pdfPath = await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big');
+        let pdfPath = '';
+        if (generateDefaultPdf) {
+          pdfPath = await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big');
+        }
 
         loadStats(); // Refresh stats after save
-        if (!silent) alert('✅ Bill ' + billData.billNumber + ' saved successfully!\n📁 Saved to: ' + pdfPath);
+        if (!silent) alert('✅ Bill ' + billData.billNumber + ' saved successfully!' + (pdfPath ? '\n📁 Saved to: ' + pdfPath : ''));
         return true;
       } else {
         alert('⚠️ Database not connected. Please restart the application.');
@@ -428,36 +444,26 @@ export function Billing() {
 
   const handleSaveAndGenerate = async () => {
     try {
-      const saved = await handleSave(true);
+      const saved = await handleSave(true, false);
       if (!saved) return;
-      
-      const generatedPaths = [];
 
-      // Generate Transport PDF copies
       const transportCount = printCopies.transport || 1;
       for (let i = 0; i < transportCount; i++) {
-        const transportPath = await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'transport');
-        if (i === 0) generatedPaths.push(transportPath);
+        window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'transport').catch(console.error);
+        window.electron.ipcRenderer.invoke('print-bill', billData, items, 'transport').catch(console.error);
       }
 
-      // Generate Big Print PDF copies
       const bigCount = printCopies.big || 1;
       for (let i = 0; i < bigCount; i++) {
-        const bigPath = await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big');
-        if (i === 0) generatedPaths.push(bigPath);
+        window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big').catch(console.error);
+        window.electron.ipcRenderer.invoke('print-bill', billData, items, 'big').catch(console.error);
       }
 
-      // Print transport copies
-      for (let i = 0; i < transportCount; i++) {
-        await window.electron.ipcRenderer.invoke('print-bill', billData, items, 'transport');
-      }
-
-      // Print big copies
-      for (let i = 0; i < bigCount; i++) {
-        await window.electron.ipcRenderer.invoke('print-bill', billData, items, 'big');
-      }
-
-      alert(`✅ Bill ${billData.billNumber} saved & generated!\n📁 ${generatedPaths.join('\n📁 ')}`);
+      // Automatically move to next bill to save clicks
+      window.electron.db.getLastBillNumber().then(lastNo => {
+        const nextNo = lastNo ? (parseInt(lastNo) + 1).toString() : '1';
+        resetForm(nextNo);
+      });
     } catch (error) {
       console.error(error);
       alert('❌ Error generating PDF: ' + (error.message || 'Unknown error'));
@@ -466,11 +472,11 @@ export function Billing() {
 
   const handlePrint = async (type = 'big') => {
     try {
-      const saved = await handleSave(true);
+      const saved = await handleSave(true, false);
       if (!saved) return;
 
       const count = printCopies[type] || 1;
-      
+
       // Fire and forget printing/generation so user doesn't wait
       for (let i = 0; i < count; i++) {
         window.electron.ipcRenderer.invoke('generate-pdf', billData, items, type).catch(console.error);
@@ -482,7 +488,7 @@ export function Billing() {
         const nextNo = lastNo ? (parseInt(lastNo) + 1).toString() : '1';
         resetForm(nextNo);
       });
-      
+
     } catch (error) {
       console.error(error);
       alert('❌ Error in printing: ' + (error.message || 'Unknown error'));
@@ -491,19 +497,19 @@ export function Billing() {
 
 
   const handleUpNext = async () => {
-    const saved = await handleSave(true);
+    const saved = await handleSave(true, false);
     if (!saved) return;
 
     // Generate big bill PDF
     const bigCount = printCopies.big || 1;
     for (let i = 0; i < bigCount; i++) {
-      await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big');
+      window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big').catch(console.error);
     }
 
     // Also generate transport copy PDF
     const transportCount = printCopies.transport || 1;
     for (let i = 0; i < transportCount; i++) {
-      await window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'transport');
+      window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'transport').catch(console.error);
     }
 
     window.electron.db.getLastBillNumber().then(lastNo => {
@@ -528,6 +534,10 @@ export function Billing() {
         </div>
         <div className="flex items-center gap-2">
           {/* M3 Outlined/Tonal Buttons */}
+          <button onClick={handlePreviousBill} className="flex items-center gap-1.5 px-3 py-2 rounded-full m3-label-large border border-m3-outline text-m3-on-surface-variant hover:bg-m3-surface-container-highest transition-all">
+            <ChevronLeft size={16} />
+            <span>Prev</span>
+          </button>
           <button onClick={() => resetForm()} className="flex items-center gap-1.5 px-3 py-2 rounded-full m3-label-large border border-m3-outline text-m3-primary hover:bg-m3-primary/8 transition-all">
             <Plus size={16} />
             <span>New</span>
@@ -577,7 +587,7 @@ export function Billing() {
             <FileText size={16} />
             <span>Save & Generate</span>
           </button>
-          
+
           {/* M3 Tonal Button */}
           <button onClick={() => handleSave()} className="flex items-center gap-1.5 px-4 py-2.5 rounded-full m3-label-large bg-m3-secondary-container text-m3-on-secondary-container hover:shadow-m3-1 transition-all">
             <Save size={16} />
@@ -917,7 +927,7 @@ export function Billing() {
           {/* Calculation Card */}
           <div className="p-5 rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest space-y-3">
             <h3 className="m3-title-small text-m3-on-surface border-b border-m3-outline-variant pb-3">Summary</h3>
-            
+
             <div className="flex justify-between items-center">
               <span className="m3-label-medium text-m3-on-surface-variant">Subtotal</span>
               <span className="m3-label-large font-mono text-m3-on-surface">₹{billData.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>

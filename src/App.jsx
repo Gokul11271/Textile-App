@@ -29,7 +29,7 @@ function App() {
         theme={theme} 
         onToggleTheme={toggleTheme}
       >
-        {currentPage === 'dashboard' && <Dashboard />}
+        {currentPage === 'dashboard' && <Dashboard onNavigate={setCurrentPage} />}
         {currentPage === 'billing' && <Billing />}
         {currentPage === 'parties' && <Parties />}
         {currentPage === 'reports' && <Reports theme={theme} />}

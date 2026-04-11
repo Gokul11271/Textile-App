@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { TrendingUp, FileText, Archive, ArrowRight } from 'lucide-react'
 
-export function Dashboard() {
+export function Dashboard({ onNavigate }) {
   const [stats, setStats] = useState({
     totalBills: '0',
     lastBillNo: 'N/A',
@@ -65,7 +65,10 @@ export function Dashboard() {
       <div className="rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest overflow-hidden">
         <div className="px-6 py-4 border-b border-m3-outline-variant flex justify-between items-center bg-m3-surface-container-low">
           <h3 className="m3-title-medium text-m3-on-surface">Recent Bills</h3>
-          <button className="m3-label-large text-m3-primary flex items-center gap-1 hover:underline underline-offset-4">
+          <button 
+            onClick={() => onNavigate('reports')}
+            className="m3-label-large text-m3-primary flex items-center gap-1 hover:underline underline-offset-4"
+          >
             View All
             <ArrowRight size={16} />
           </button>
