@@ -1,3 +1,4 @@
+import { useAlert } from './AlertProvider';
 import React, { useState, useEffect } from 'react';
 import { 
   Search, 
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react';
 
 export function Reports({ theme }) {
+  const { showAlert } = useAlert();
   const [bills, setBills] = useState([]);
   const [filteredBills, setFilteredBills] = useState([]);
   const [startDate, setStartDate] = useState('');
@@ -89,23 +91,23 @@ export function Reports({ theme }) {
     
     const result = await window.electron.ipcRenderer.invoke('export-to-csv', csvContent, filename);
     if (result) {
-      alert(`Report exported to: ${result}`);
+      showAlert(`Report exported to: ${result}`, 'info');
     }
   };
 
   const handleBatchPrint = async (type = 'big') => {
     if (!batchStart || !batchEnd) {
-      alert('Please enter both Start and End Bill Numbers');
+      showAlert('Please enter both Start and End Bill Numbers', 'warning');
       return;
     }
     setPrinting(true);
     try {
       const results = await window.electron.ipcRenderer.invoke('print-bill-range', batchStart, batchEnd, type);
       const successCount = results.filter(r => r.success).length;
-      alert(`Batch Print Completed: ${successCount}/${results.length} bills processed.`);
+      showAlert(`Batch Print Completed: ${successCount}/${results.length} bills processed.`, 'success');
     } catch (error) {
       console.error('Batch print failed:', error);
-      alert('Batch print failed. Check console for details.');
+      showAlert('Batch print failed. Check console for details.', 'error');
     } finally {
       setPrinting(false);
     }
@@ -116,21 +118,21 @@ export function Reports({ theme }) {
       try {
         const result = await window.electron.ipcRenderer.invoke('delete-bill', billNumber);
         if (result.success) {
-          alert('✅ Bill deleted successfully');
+          showAlert('✅ Bill deleted successfully', 'success');
           // Update local state instead of full refetch for better UX
           setBills(prev => prev.filter(b => b.bill_number !== billNumber));
         } else {
-          alert('❌ Failed to delete bill: ' + result.error);
+          showAlert('❌ Failed to delete bill: ' + result.error, 'error');
         }
       } catch (error) {
-        alert('❌ Error deleting bill: ' + error.message);
+        showAlert('❌ Error deleting bill: ' + error.message, 'error');
       }
     }
   };
 
   const handleBatchUpdateLrAndPrint = async () => {
     if (!batchStart || !batchEnd || !batchLr) {
-      alert('Please enter Start Bill No, End Bill No, and Starting LR Number');
+      showAlert('Please enter Start Bill No, End Bill No, and Starting LR Number', 'warning');
       return;
     }
     setPrinting(true);
@@ -140,16 +142,16 @@ export function Reports({ theme }) {
         // Now print the big bills
         const results = await window.electron.ipcRenderer.invoke('print-bill-range', batchStart, batchEnd, 'big');
         const successCount = results.filter(r => r.success).length;
-        alert(`Updated LR for ${updateResult.count} bills. Print Completed: ${successCount}/${results.length} bills processed.`);
+        showAlert(`Updated LR for ${updateResult.count} bills. Print Completed: ${successCount}/${results.length} bills processed.`, 'success');
         
         // Update local state without full refetch if possible, or just refetch
         handleFilter(); 
       } else {
-        alert(updateResult.message || updateResult.error || 'Failed to update LR numbers');
+        showAlert(updateResult.message || updateResult.error || 'Failed to update LR numbers', 'error');
       }
     } catch (error) {
       console.error('Batch LR update/print failed:', error);
-      alert('Batch LR update and print failed. Check console for details.');
+      showAlert('Batch LR update and print failed. Check console for details.', 'error');
     } finally {
       setPrinting(false);
     }

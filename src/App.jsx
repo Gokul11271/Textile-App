@@ -5,6 +5,8 @@ import { Billing } from './components/Billing'
 import Parties from './components/Parties'
 import { Reports } from './components/Reports'
 import Settings from './components/Settings'
+import { AlertProvider } from './components/AlertProvider'
+import { Toaster } from 'sonner'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard')
@@ -23,18 +25,21 @@ function App() {
 
   return (
     <div className={theme === 'dark' ? 'dark' : ''}>
-      <Layout 
-        activePage={currentPage} 
-        onNavigate={setCurrentPage} 
-        theme={theme} 
-        onToggleTheme={toggleTheme}
-      >
-        {currentPage === 'dashboard' && <Dashboard onNavigate={setCurrentPage} />}
-        {currentPage === 'billing' && <Billing />}
-        {currentPage === 'parties' && <Parties />}
-        {currentPage === 'reports' && <Reports theme={theme} />}
-        {currentPage === 'settings' && <Settings />}
-      </Layout>
+      <Toaster position="bottom-right" richColors theme={theme} />
+      <AlertProvider>
+        <Layout
+          activePage={currentPage}
+          onNavigate={setCurrentPage}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        >
+          {currentPage === 'dashboard' && <Dashboard onNavigate={setCurrentPage} />}
+          {currentPage === 'billing' && <Billing />}
+          {currentPage === 'parties' && <Parties />}
+          {currentPage === 'reports' && <Reports theme={theme} />}
+          {currentPage === 'settings' && <Settings />}
+        </Layout>
+      </AlertProvider>
     </div>
   )
 }

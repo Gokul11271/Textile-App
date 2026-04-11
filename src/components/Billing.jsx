@@ -1,7 +1,9 @@
+import { useAlert } from './AlertProvider';
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, Trash2, Save, Printer, FileText, Search, User, Package, ChevronRight, ChevronLeft } from 'lucide-react'
 
 export function Billing() {
+  const { showAlert } = useAlert();
   const formatDate = (date) => {
     const d = new Date(date);
     const day = d.getDate().toString().padStart(2, '0');
@@ -307,7 +309,7 @@ export function Billing() {
         }));
       }
     } else {
-      alert('Bill not found');
+      showAlert('Bill not found', 'error');
     }
   };
 
@@ -319,7 +321,7 @@ export function Billing() {
     if (prevNo > 0) {
       loadBillByNumber(prevNo.toString());
     } else {
-      alert('No previous bill exists.');
+      showAlert('No previous bill exists.', 'warning');
     }
   };
 
@@ -341,7 +343,7 @@ export function Billing() {
       try {
         const result = await window.electron.ipcRenderer.invoke('delete-bill', billData.billNumber);
         if (result.success) {
-          alert('✅ Bill deleted successfully');
+          showAlert('✅ Bill deleted successfully', 'success');
           loadStats();
           // After delete, clear the form but maybe suggest the next number or just refresh
           window.electron.db.getLastBillNumber().then(lastNo => {
@@ -353,10 +355,10 @@ export function Billing() {
             }
           });
         } else {
-          alert('❌ Failed to delete bill: ' + result.error);
+          showAlert('❌ Failed to delete bill: ' + result.error, 'error');
         }
       } catch (error) {
-        alert('❌ Error deleting bill: ' + error.message);
+        showAlert('❌ Error deleting bill: ' + error.message, 'error');
       }
     }
   }
@@ -394,12 +396,12 @@ export function Billing() {
   const handleSave = async (silent = false, generateDefaultPdf = true) => {
     try {
       if (!billData.billNumber) {
-        alert('Please enter a Bill Number.');
+        showAlert('Please enter a Bill Number.', 'warning');
         billNoRef.current?.focus();
         return false;
       }
       if (!billData.partyName && !billData.partyShortName) {
-        alert('Please select or enter a Party Name.');
+        showAlert('Please select or enter a Party Name.', 'warning');
         partyNameRef.current?.focus();
         return false;
       }
@@ -409,7 +411,7 @@ export function Billing() {
         (item.productName && item.productName.trim()) || Number(item.quantity) > 0 || Number(item.rate) > 0
       );
       if (!hasValidItem) {
-        alert('Please add at least one line item with a product name, quantity, or rate.');
+        showAlert('Please add at least one line item with a product name, quantity, or rate.', 'warning');
         firstItemSizeRef.current?.focus();
         return false;
       }
@@ -429,15 +431,15 @@ export function Billing() {
         }
 
         loadStats(); // Refresh stats after save
-        if (!silent) alert('✅ Bill ' + billData.billNumber + ' saved successfully!' + (pdfPath ? '\n📁 Saved to: ' + pdfPath : ''));
+        if (!silent) showAlert('✅ Bill ' + billData.billNumber + ' saved successfully!' + (pdfPath ? '\n📁 Saved to: ' + pdfPath : ''), 'success');
         return true;
       } else {
-        alert('⚠️ Database not connected. Please restart the application.');
+        showAlert('⚠️ Database not connected. Please restart the application.', 'error');
         return false;
       }
     } catch (error) {
       console.error('Save error:', error);
-      alert('❌ Error saving bill: ' + (error.message || 'Unknown error'));
+      showAlert('❌ Error saving bill: ' + (error.message || 'Unknown error'), 'error');
       return false;
     }
   };
@@ -466,7 +468,7 @@ export function Billing() {
       });
     } catch (error) {
       console.error(error);
-      alert('❌ Error generating PDF: ' + (error.message || 'Unknown error'));
+      showAlert('❌ Error generating PDF: ' + (error.message || 'Unknown error'), 'error');
     }
   };
 
@@ -491,7 +493,7 @@ export function Billing() {
 
     } catch (error) {
       console.error(error);
-      alert('❌ Error in printing: ' + (error.message || 'Unknown error'));
+      showAlert('❌ Error in printing: ' + (error.message || 'Unknown error'), 'error');
     }
   };
 

@@ -1,7 +1,9 @@
+import { useAlert } from './AlertProvider';
 import React, { useState, useEffect } from 'react';
 import { Download, Upload, RotateCcw, Save } from 'lucide-react';
 
 export default function Settings() {
+  const { showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState('company');
   const [settings, setSettings] = useState({
     activeCompany: 'company1',
@@ -53,7 +55,7 @@ export default function Settings() {
     setSaving(true);
     if (window.electron && window.electron.ipcRenderer) {
       await window.electron.ipcRenderer.invoke('save-settings', settings);
-      alert('Settings saved successfully!');
+      showAlert('Settings saved successfully!', 'success');
     }
     setSaving(false);
   };
@@ -72,9 +74,9 @@ export default function Settings() {
     if (window.electron && window.electron.ipcRenderer) {
       const res = await window.electron.ipcRenderer.invoke('backup-database');
       if (res.success) {
-        alert('Database backed up successfully to: ' + res.path);
+        showAlert('Database backed up successfully to: ' + res.path, 'success');
       } else if (!res.cancelled) {
-        alert('Failed to backup database.');
+        showAlert('Failed to backup database.', 'error');
       }
     }
   };
@@ -85,9 +87,9 @@ export default function Settings() {
       if (!confirm) return;
       const res = await window.electron.ipcRenderer.invoke('restore-database');
       if (res.success) {
-        alert('Database restored successfully! Please restart the application for changes to take effect.');
+        showAlert('Database restored successfully! Please restart the application for changes to take effect.', 'success');
       } else if (res.error) {
-        alert('Failed to restore database: ' + res.error);
+        showAlert('Failed to restore database: ' + res.error, 'error');
       }
     }
   };
@@ -101,9 +103,9 @@ export default function Settings() {
         // Pass a hardcoded 'admin123' since we can't use prompt easily, or let backend accept an empty one since confirmed
         const res = await window.electron.ipcRenderer.invoke('factory-reset', 'admin123');
         if (res.success) {
-          alert('Factory reset completed successfully!');
+          showAlert('Factory reset completed successfully!', 'success');
         } else {
-          alert('Failed to reset: ' + res.error);
+          showAlert('Failed to reset: ' + res.error, 'error');
         }
       }
     }
