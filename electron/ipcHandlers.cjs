@@ -637,7 +637,7 @@ function setupIpcHandlers() {
     return await generateBillPdf(bill, items, type);
   });
 
-  ipcMain.handle('print-bill', async (event, bill, items, type = 'big') => {
+  ipcMain.handle('print-bill', async (event, bill, items, type = 'big', copies = 1) => {
     const win = new BrowserWindow({ show: false });
     const settings = await getSettingsObj();
     const htmlContent = getBillHtml(bill, items, type, settings);
@@ -646,7 +646,7 @@ function setupIpcHandlers() {
     
     // Direct print silently
     return new Promise((resolve) => {
-      win.webContents.print({ silent: true, printBackground: true, deviceName: '' }, (success, failureReason) => {
+      win.webContents.print({ silent: true, printBackground: true, deviceName: '', copies: copies }, (success, failureReason) => {
         win.close();
         if (!success) resolve({ success: false, error: failureReason });
         else resolve({ success: true });

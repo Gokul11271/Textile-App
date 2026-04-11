@@ -67,25 +67,33 @@ export function Billing() {
   }, [])
 
   useEffect(() => {
-    if (window.electron && window.electron.db) {
-      window.electron.db.getParties().then(data => setParties(data || []))
-      window.electron.db.getAgents().then(data => setAgents(data || []))
-
-      window.electron.ipcRenderer.invoke('get-settings').then(settings => {
-        if (settings && settings.defaultTaxRate !== undefined) {
-          setBillData(prev => ({ ...prev, taxRate: Number(settings.defaultTaxRate) }));
-        }
-      });
-      loadStats()
-      window.electron.db.getProducts && window.electron.db.getProducts().then(data => setProducts(data || []))
-      window.electron.db.getLastBillNumber().then(lastNo => {
-        if (lastNo) {
-          setBillData(prev => ({ ...prev, billNumber: (parseInt(lastNo) + 1).toString() }))
-        } else {
-          setBillData(prev => ({ ...prev, billNumber: '1' }))
-        }
-      })
-    }
+    const loadInitialData = async () => {
+      if (!window.electron || !window.electron.db) return;
+      try {
+        const [partiesData, agentsData, productsData, settings, lastNo] = await Promise.all([
+          window.electron.db.getParties(),
+          window.electron.db.getAgents(),
+          window.electron.db.getProducts ? window.electron.db.getProducts() : Promise.resolve([]),
+          window.electron.ipcRenderer.invoke('get-settings'),
+          window.electron.db.getLastBillNumber()
+        ]);
+        
+        setParties(partiesData || []);
+        setAgents(agentsData || []);
+        setProducts(productsData || []);
+        
+        setBillData(prev => ({
+          ...prev,
+          taxRate: (settings && settings.defaultTaxRate !== undefined) ? Number(settings.defaultTaxRate) : prev.taxRate,
+          billNumber: lastNo ? (parseInt(lastNo) + 1).toString() : '1'
+        }));
+        
+        loadStats();
+      } catch (error) {
+        console.error("Error loading initial data", error);
+      }
+    };
+    loadInitialData();
   }, [loadStats])
 
   const calculateTotals = useCallback((currentItems, currentBillData) => {
@@ -391,6 +399,11 @@ export function Billing() {
       subtotal: 0
     })
     setItems([{ id: Date.now(), size: '', productName: '', quantity: 0, rate: 0, amount: 0, baleNumber: '' }])
+    
+    // UI Focus Restore optimization
+    setTimeout(() => {
+      if (partyNameRef.current) partyNameRef.current.focus();
+    }, 50);
   }, [])
 
   const handleSave = async (silent = false, generateDefaultPdf = true) => {
@@ -450,15 +463,15 @@ export function Billing() {
       if (!saved) return;
 
       const transportCount = printCopies.transport || 1;
-      for (let i = 0; i < transportCount; i++) {
+      if (transportCount > 0) {
         window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'transport').catch(console.error);
-        window.electron.ipcRenderer.invoke('print-bill', billData, items, 'transport').catch(console.error);
+        window.electron.ipcRenderer.invoke('print-bill', billData, items, 'transport', transportCount).catch(console.error);
       }
 
       const bigCount = printCopies.big || 1;
-      for (let i = 0; i < bigCount; i++) {
+      if (bigCount > 0) {
         window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big').catch(console.error);
-        window.electron.ipcRenderer.invoke('print-bill', billData, items, 'big').catch(console.error);
+        window.electron.ipcRenderer.invoke('print-bill', billData, items, 'big', bigCount).catch(console.error);
       }
 
       // Automatically move to next bill to save clicks
@@ -480,9 +493,9 @@ export function Billing() {
       const count = printCopies[type] || 1;
 
       // Fire and forget printing/generation so user doesn't wait
-      for (let i = 0; i < count; i++) {
+      if (count > 0) {
         window.electron.ipcRenderer.invoke('generate-pdf', billData, items, type).catch(console.error);
-        window.electron.ipcRenderer.invoke('print-bill', billData, items, type).catch(console.error);
+        window.electron.ipcRenderer.invoke('print-bill', billData, items, type, count).catch(console.error);
       }
 
       // Immediately move to next bill
