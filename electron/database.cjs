@@ -284,6 +284,28 @@ async function initBillCounter() {
   );
 }
 
+/**
+ * Atomically increment a counter and return its NEW value.
+ * Uses RETURNING (SQLite 3.35+) for a single round-trip.
+ * Falls back to UPDATE + SELECT for older Electron/SQLite builds.
+ */
+async function incrementCounter(name) {
+  try {
+    // RETURNING is supported in SQLite 3.35.0+ (Electron 12+)
+    const row = await dbGet(
+      `UPDATE counters SET value = value + 1 WHERE name = ? RETURNING value`,
+      [name]
+    );
+    if (row && row.value !== undefined) return row.value;
+  } catch (_) {
+    // Silently fall through to the safe two-step fallback
+  }
+  // Safe fallback: UPDATE then SELECT (still inside the caller's transaction)
+  await dbRun(`UPDATE counters SET value = value + 1 WHERE name = ?`, [name]);
+  const row = await dbGet(`SELECT value FROM counters WHERE name = ?`, [name]);
+  return row.value;
+}
+
 module.exports = {
   db,
   dbRun,
@@ -292,4 +314,5 @@ module.exports = {
   dbExec,
   initDatabase,
   initBillCounter,
+  incrementCounter,
 };

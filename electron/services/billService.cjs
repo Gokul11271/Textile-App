@@ -1,4 +1,4 @@
-const { dbRun, dbAll, dbGet } = require('../database.cjs');
+const { dbRun, dbAll, dbGet, incrementCounter } = require('../database.cjs');
 
 /**
  * Save (insert or update) a bill and its line items atomically.
@@ -45,15 +45,9 @@ const saveBill = async (bill, items) => {
       billId = existing.id;
       await dbRun('DELETE FROM bill_items WHERE bill_id = ?', [billId]);
     } else {
-      // Phase 4: Atomic counter increment — no race conditions possible
-      // Increment and read the new value in a single statement inside our transaction
-      await dbRun(
-        `UPDATE counters SET value = value + 1 WHERE name = 'bill_number'`
-      );
-      const counterRow = await dbGet(
-        `SELECT value FROM counters WHERE name = 'bill_number'`
-      );
-      const actualBillNumber = counterRow.value.toString();
+      // Phase 4: Atomic counter — guaranteed return value via RETURNING or fallback SELECT
+      const newValue = await incrementCounter('bill_number');
+      const actualBillNumber = newValue.toString();
 
       const billResult = await dbRun(`
         INSERT INTO bills (
@@ -108,11 +102,12 @@ const saveBill = async (bill, items) => {
 };
 
 /**
- * Get the last (highest) bill number.
+ * Get the last (highest) bill number using the atomic counter.
+ * O(1) — reads a single row instead of scanning all bills.
  */
 const getLastBillNumber = async () => {
-  const row = await dbGet('SELECT MAX(CAST(bill_number AS INTEGER)) as max_no FROM bills');
-  return row && row.max_no ? row.max_no.toString() : null;
+  const row = await dbGet(`SELECT value FROM counters WHERE name = 'bill_number'`);
+  return (row && row.value > 0) ? row.value.toString() : null;
 };
 
 /**
