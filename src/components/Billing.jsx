@@ -53,6 +53,7 @@ export function Billing() {
   const [parties, setParties] = useState([])
   const [agents, setAgents] = useState([])
   const [partyIndex, setPartyIndex] = useState(-1)
+  const [isSaving, setIsSaving] = useState(false)
 
   const billNoRef = useRef(null)
   const dateRef = useRef(null)
@@ -407,6 +408,8 @@ export function Billing() {
   }, [])
 
   const handleSave = async (silent = false, generateDefaultPdf = true) => {
+    if (isSaving) return false;
+    setIsSaving(true);
     try {
       if (!billData.billNumber) {
         showAlert('Please enter a Bill Number.', 'warning');
@@ -454,6 +457,8 @@ export function Billing() {
       console.error('Save error:', error);
       showAlert('❌ Error saving bill: ' + (error.message || 'Unknown error'), 'error');
       return false;
+    } finally {
+      setIsSaving(false);
     }
   };
 

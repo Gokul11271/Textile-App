@@ -229,6 +229,11 @@ async function initDatabase() {
       key TEXT PRIMARY KEY,
       value TEXT
     );
+
+    CREATE INDEX IF NOT EXISTS idx_bills_number ON bills(bill_number);
+    CREATE INDEX IF NOT EXISTS idx_bills_date ON bills(date);
+    CREATE INDEX IF NOT EXISTS idx_bill_items_bill_id ON bill_items(bill_id);
+    CREATE INDEX IF NOT EXISTS idx_bills_party_id ON bills(party_id);
   `);
 
   const columns = ['phone', 'email', 'city', 'state', 'aadhar_number', 'pan_number', 'opening_balance', 'customer_id'];
