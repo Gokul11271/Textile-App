@@ -2,10 +2,12 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { initDatabase } = require('./database.cjs');
 const { setupIpcHandlers } = require('./ipcHandlers.cjs');
+const { autoBackup } = require('./services/backupService.cjs');
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 // Initialize Database and Setup IPC Handlers
 async function initializeApp() {
+  autoBackup();       // Phase 5: best-effort daily backup before any migrations
   await initDatabase();
   setupIpcHandlers();
 }
