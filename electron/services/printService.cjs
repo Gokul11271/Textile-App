@@ -1,8 +1,25 @@
 const { BrowserWindow, app } = require('electron');
 const { dbAll, dbGet } = require('../database.cjs');
 const { renderTemplate } = require('./templateEngine.cjs');
+const { info, error: logError } = require('./logService.cjs');
 const fs = require('fs');
 const path = require('path');
+
+// ─── Promise Queue for Serial Execution ───────────────────────────────────────
+// Ensures only one print operation happens at a time.
+class PromiseQueue {
+  constructor() {
+    this.queue = Promise.resolve();
+  }
+
+  addTask(task) {
+    const result = this.queue.then(() => task());
+    this.queue = result.catch(() => {}); // Continue queue even if task fails
+    return result;
+  }
+}
+
+const printQueue = new PromiseQueue();
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -256,10 +273,9 @@ const getBillHtml = (bill, items, type = 'big', settings = {}) => {
   return renderTemplate(templateName, vars);
 };
 
-// ─── Print Window (Singleton + Concurrency Lock) ──────────────────────────────
+// ─── Print Window (Singleton) ─────────────────────────────────────────────────
 
 let printWindow = null;
-let isPrinting  = false;
 
 const getPrintWindow = () => {
   if (!printWindow || printWindow.isDestroyed()) {
@@ -269,62 +285,67 @@ const getPrintWindow = () => {
   return printWindow;
 };
 
-const waitPrintLock = async () => {
-  while (isPrinting) {
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-};
-
 // ─── Public: PDF Generation ───────────────────────────────────────────────────
 
 const generateBillPdf = async (bill, items, type = 'big') => {
-  await waitPrintLock();
-  isPrinting = true;
-  try {
-    const win      = getPrintWindow();
-    const settings = await getSettingsObj();
-    const html     = getBillHtml(bill, items, type, settings);
+  return printQueue.addTask(async () => {
+    try {
+      const win      = getPrintWindow();
+      const settings = await getSettingsObj();
+      const html     = getBillHtml(bill, items, type, settings);
 
-    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+      await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
-    const docPath  = app.getPath('documents');
-    const fileName = await buildPdfFilename(bill, type);
-    const pdfPath  = path.join(docPath, 'Dhanalakshmi_Bills', fileName);
-    const dir      = path.dirname(pdfPath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      const docPath  = app.getPath('documents');
+      const fileName = await buildPdfFilename(bill, type);
+      const pdfPath  = path.join(docPath, 'Dhanalakshmi_Bills', fileName);
+      const dir      = path.dirname(pdfPath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-    const data = await win.webContents.printToPDF({ marginsType: 1, printBackground: true, pageSize: 'A4' });
-    fs.writeFileSync(pdfPath, data);
-    return pdfPath;
-  } finally {
-    isPrinting = false;
-  }
+      const data = await win.webContents.printToPDF({ marginsType: 1, printBackground: true, pageSize: 'A4' });
+      fs.writeFileSync(pdfPath, data);
+
+      info('printService', `PDF Generated: ${fileName}`, { billNumber: bill.billNumber, type });
+      return pdfPath;
+    } catch (err) {
+      logError('printService', `PDF Generation Failed: ${bill.billNumber}`, { error: err.message });
+      throw err;
+    }
+  });
 };
 
 // ─── Public: Direct Print ─────────────────────────────────────────────────────
 
 const printBillDirect = async (bill, items, type = 'big', copies = 1) => {
-  await waitPrintLock();
-  isPrinting = true;
-  try {
-    const win      = getPrintWindow();
-    const settings = await getSettingsObj();
-    const html     = getBillHtml(bill, items, type, settings);
+  return printQueue.addTask(async () => {
+    try {
+      const win      = getPrintWindow();
+      const settings = await getSettingsObj();
+      const html     = getBillHtml(bill, items, type, settings);
 
-    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+      await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
-    return await new Promise((resolve) => {
-      win.webContents.print(
-        { silent: true, printBackground: true, deviceName: '', copies },
-        (success, failureReason) => {
-          if (!success) resolve({ success: false, error: failureReason });
-          else resolve({ success: true });
-        }
-      );
-    });
-  } finally {
-    isPrinting = false;
-  }
+      const result = await new Promise((resolve) => {
+        win.webContents.print(
+          { silent: true, printBackground: true, deviceName: '', copies },
+          (success, failureReason) => {
+            if (!success) resolve({ success: false, error: failureReason });
+            else resolve({ success: true });
+          }
+        );
+      });
+
+      if (result.success) {
+        info('printService', `Printed Successfully: Bill ${bill.billNumber}`, { copies, type });
+      } else {
+        logError('printService', `Print Failed: Bill ${bill.billNumber}`, { reason: result.error });
+      }
+      return result;
+    } catch (err) {
+      logError('printService', `Print Task Exception: ${bill.billNumber}`, { error: err.message });
+      throw err;
+    }
+  });
 };
 
 module.exports = { getSettingsObj, getBillHtml, generateBillPdf, printBillDirect };

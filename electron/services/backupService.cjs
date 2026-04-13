@@ -1,6 +1,7 @@
 const fs   = require('fs');
 const path = require('path');
 const { app } = require('electron');
+const { info, error: logError } = require('./logService.cjs');
 
 /**
  * Phase 5: Auto-backup service.
@@ -43,12 +44,17 @@ const autoBackup = () => {
       .sort((a, b) => b.time - a.time);   // newest first
 
     allBackups.slice(MAX_BACKUPS).forEach(old => {
-      try { fs.unlinkSync(path.join(backupDir, old.name)); } catch (_) {}
+      try { 
+        fs.unlinkSync(path.join(backupDir, old.name)); 
+        info('backupService', `Pruned old backup: ${old.name}`);
+      } catch (_) {}
     });
 
+    info('backupService', 'Daily auto-backup completed', { backupFile });
     console.log(`[Backup] Saved: ${backupFile} (keeping last ${MAX_BACKUPS} backups)`);
   } catch (err) {
     // Backup is best-effort — never crash the app over it
+    logError('backupService', `Auto-backup failed: ${err.message}`);
     console.error('[Backup] Auto-backup failed:', err.message);
   }
 };

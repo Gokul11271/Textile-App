@@ -236,10 +236,21 @@ async function initDatabase() {
       value INTEGER NOT NULL DEFAULT 0
     );
 
+    -- Phase 5: Structured Audit Logging
+    CREATE TABLE IF NOT EXISTS system_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      level TEXT NOT NULL, -- INFO, WARN, ERROR
+      source TEXT NOT NULL, -- e.g., 'billService', 'printService'
+      message TEXT NOT NULL,
+      details TEXT -- JSON data
+    );
+
     CREATE INDEX IF NOT EXISTS idx_bills_number ON bills(bill_number);
     CREATE INDEX IF NOT EXISTS idx_bills_date ON bills(date);
     CREATE INDEX IF NOT EXISTS idx_bill_items_bill_id ON bill_items(bill_id);
     CREATE INDEX IF NOT EXISTS idx_bills_party_id ON bills(party_id);
+    CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON system_logs(timestamp);
   `);
 
   const columns = ['phone', 'email', 'city', 'state', 'aadhar_number', 'pan_number', 'opening_balance', 'customer_id'];
@@ -264,6 +275,9 @@ async function initDatabase() {
 
   // Phase 4: Seed counter from existing MAX bill number (safe migration)
   await initBillCounter();
+
+  // Phase 5: Prune old logs to keep DB size small
+  await pruneLogs();
 }
 
 /**
@@ -306,6 +320,25 @@ async function incrementCounter(name) {
   return row.value;
 }
 
+/**
+ * Prunes the system_logs table to keep only the most recent N entries.
+ * Default: 1000 logs.
+ */
+async function pruneLogs(maxLogs = 1000) {
+  try {
+    await dbRun(`
+      DELETE FROM system_logs 
+      WHERE id NOT IN (
+        SELECT id FROM system_logs 
+        ORDER BY timestamp DESC 
+        LIMIT ?
+      )
+    `, [maxLogs]);
+  } catch (err) {
+    console.error('Failed to prune logs:', err);
+  }
+}
+
 module.exports = {
   db,
   dbRun,
@@ -315,4 +348,5 @@ module.exports = {
   initDatabase,
   initBillCounter,
   incrementCounter,
+  pruneLogs,
 };

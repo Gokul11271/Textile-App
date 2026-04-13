@@ -1,4 +1,5 @@
 const { dbRun, dbAll, dbGet, incrementCounter } = require('../database.cjs');
+const { info, warn, error: logError } = require('./logService.cjs');
 
 /**
  * Save (insert or update) a bill and its line items atomically.
@@ -94,10 +95,12 @@ const saveBill = async (bill, items) => {
     }
 
     await dbRun('COMMIT');
+    info('billService', `Bill ${existing ? 'Updated' : 'Created'}: ${bill.billNumber}`, { billId, billNumber: bill.billNumber });
     return { billId, billNumber: bill.billNumber };
-  } catch (error) {
+  } catch (err) {
     await dbRun('ROLLBACK');
-    throw error;
+    logError('billService', `Save Bill Failed: ${bill.billNumber}`, { error: err.message });
+    throw err;
   }
 };
 
@@ -141,9 +144,11 @@ const deleteBill = async (billNumber) => {
       await dbRun('DELETE FROM bill_items WHERE bill_id = ?', [bill.id]);
       await dbRun('DELETE FROM bills WHERE id = ?', [bill.id]);
       await dbRun('COMMIT');
+      info('billService', `Bill Deleted: ${billNumber}`, { billNumber });
       return { success: true };
     } catch (e) {
       await dbRun('ROLLBACK');
+      logError('billService', `Delete Bill Failed: ${billNumber}`, { error: e.message });
       return { success: false, error: e.message };
     }
   } catch (e) {
