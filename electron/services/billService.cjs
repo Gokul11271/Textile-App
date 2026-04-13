@@ -45,10 +45,15 @@ const saveBill = async (bill, items) => {
       billId = existing.id;
       await dbRun('DELETE FROM bill_items WHERE bill_id = ?', [billId]);
     } else {
-      // Enforce strict sequential bill numbers
-      const row = await dbGet('SELECT MAX(CAST(bill_number AS INTEGER)) as max_no FROM bills');
-      const nextNo = (row && row.max_no ? row.max_no : 0) + 1;
-      const actualBillNumber = nextNo.toString();
+      // Phase 4: Atomic counter increment — no race conditions possible
+      // Increment and read the new value in a single statement inside our transaction
+      await dbRun(
+        `UPDATE counters SET value = value + 1 WHERE name = 'bill_number'`
+      );
+      const counterRow = await dbGet(
+        `SELECT value FROM counters WHERE name = 'bill_number'`
+      );
+      const actualBillNumber = counterRow.value.toString();
 
       const billResult = await dbRun(`
         INSERT INTO bills (

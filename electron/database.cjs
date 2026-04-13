@@ -230,6 +230,12 @@ async function initDatabase() {
       value TEXT
     );
 
+    -- Phase 4: Atomic bill number counter
+    CREATE TABLE IF NOT EXISTS counters (
+      name TEXT PRIMARY KEY,
+      value INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE INDEX IF NOT EXISTS idx_bills_number ON bills(bill_number);
     CREATE INDEX IF NOT EXISTS idx_bills_date ON bills(date);
     CREATE INDEX IF NOT EXISTS idx_bill_items_bill_id ON bill_items(bill_id);
@@ -255,6 +261,27 @@ async function initDatabase() {
       }
     } catch (e) {}
   }
+
+  // Phase 4: Seed counter from existing MAX bill number (safe migration)
+  await initBillCounter();
+}
+
+/**
+ * Seeds the counters table so it matches the current highest bill number.
+ * Safe to call on every start — uses INSERT OR IGNORE so it never overwrites.
+ * If bills already exist, syncs the counter to MAX to prevent gaps/duplicates.
+ */
+async function initBillCounter() {
+  // Ensure a row exists (INSERT OR IGNORE is idempotent)
+  await dbRun(`INSERT OR IGNORE INTO counters (name, value) VALUES ('bill_number', 0)`);
+
+  // Sync counter upwards to the current MAX (never move it backwards)
+  const row = await dbGet(`SELECT MAX(CAST(bill_number AS INTEGER)) as max_no FROM bills`);
+  const currentMax = (row && row.max_no) ? row.max_no : 0;
+  await dbRun(
+    `UPDATE counters SET value = MAX(value, ?) WHERE name = 'bill_number'`,
+    [currentMax]
+  );
 }
 
 module.exports = {
@@ -264,4 +291,5 @@ module.exports = {
   dbGet,
   dbExec,
   initDatabase,
+  initBillCounter,
 };
