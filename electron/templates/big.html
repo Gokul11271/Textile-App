@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      @page { margin: 8mm; }
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        margin: 0; padding: 0; color: #1a1a1a; line-height: 1.3;
+      }
+      .container { border: 1.2pt solid #000; padding: 0; width: 100%; box-sizing: border-box; }
+
+      /* Header */
+      .header-section { display: flex; border-bottom: 2pt solid #000; background: #fff; }
+      .brand-area { flex: 1.8; padding: 15px; border-right: 1.2pt solid #000; }
+      .brand-area h1 { margin: 0; font-size: 22pt; font-weight: 900; color: #000; letter-spacing: -0.5px; }
+      .brand-area p { margin: 3px 0; font-size: 9pt; font-weight: 600; color: #444; text-transform: uppercase; }
+      .meta-area { flex: 1; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; }
+      .invoice-title { font-size: 14pt; font-weight: 900; display: flex; justify-content: space-between; border-bottom: 1pt solid #000; padding-bottom: 5px; margin-bottom: 10px; }
+      .meta-row { display: flex; justify-content: space-between; font-size: 9pt; margin-bottom: 4px; font-weight: 700; }
+
+      /* Bank bar */
+      .info-bar { display: flex; border-bottom: 1.2pt solid #000; background: #f9f9f9; font-size: 8.5pt; font-weight: 800; }
+      .info-item { padding: 6px 15px; border-right: 1pt solid #000; }
+      .info-item:last-child { border-right: none; }
+
+      /* Party */
+      .party-section { padding: 12px 15px; border-bottom: 1.2pt solid #000; }
+      .section-label { font-size: 7pt; font-weight: 900; color: #666; text-transform: uppercase; margin-bottom: 4px; }
+      .party-name { font-size: 13pt; font-weight: 800; margin-bottom: 2px; }
+      .party-address { font-size: 9.5pt; font-weight: 500; color: #333; max-width: 80%; }
+      .party-gst { margin-top: 5px; font-weight: 800; font-size: 9pt; }
+
+      /* Table */
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th { background: #000; color: #fff; font-size: 8.5pt; padding: 8px 10px; text-align: left; border: 0.5pt solid #000; }
+      td { padding: 8px 10px; border: 0.5pt solid #000; font-size: 10pt; font-weight: 600; }
+      .text-right { text-align: right; }
+      .text-center { text-align: center; }
+
+      /* Calculation area */
+      .calc-grid { display: flex; border-bottom: 1.2pt solid #000; }
+      .calc-notes { flex: 1.5; padding: 10px; border-right: 1.2pt solid #000; font-size: 8pt; color: #666; font-style: italic; }
+      .calc-table { flex: 1; }
+      .calc-row { display: flex; border-bottom: 0.5pt solid #000; }
+      .calc-row:last-child { border-bottom: none; }
+      .calc-label { flex: 1.5; padding: 6px 10px; font-size: 8.5pt; font-weight: 800; text-transform: uppercase; border-right: 0.5pt solid #000; background: #fdfdfd; }
+      .calc-value { flex: 1; padding: 6px 10px; font-size: 9.5pt; font-weight: 800; text-align: right; }
+
+      /* Total strip */
+      .total-strip { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: #000; color: #fff; }
+      .total-label { font-size: 10pt; font-weight: 900; letter-spacing: 2px; }
+      .total-amount { font-size: 20pt; font-weight: 900; }
+
+      /* Footer */
+      .footer-section { display: flex; height: 90px; }
+      .shipping-details { flex: 2; padding: 10px; border-right: 1.2pt solid #000; border-top: 1.2pt solid #000; }
+      .signature-area { flex: 1; padding: 15px; text-align: center; border-top: 1.2pt solid #000; display: flex; flex-direction: column; justify-content: space-between; }
+      .sig-title { font-size: 7.5pt; font-weight: 900; text-transform: uppercase; }
+
+      /* Bale grid */
+      .bale-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-top: 5px; }
+      .bale-item { border: 1pt solid #000; text-align: center; font-size: 8pt; font-weight: 900; padding: 2px 0; background: #f9f9f9; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div style="background: #000; color: #fff; padding: 3px 15px; font-size: 7pt; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">Tax Invoice - Original for Recipient</div>
+
+      <div class="header-section">
+        <div class="brand-area">
+          <h1>{{COMPANY_NAME}}</h1>
+          <p>{{COMPANY_ADDRESS1}}</p>
+          <p>{{COMPANY_ADDRESS2}}</p>
+          <p style="color:#000; margin-top:8px;">GSTIN: {{COMPANY_GST}}</p>
+        </div>
+        <div class="meta-area">
+          <div class="invoice-title">
+            <span>#{{BILL_NUMBER}}{{FINANCIAL_YEAR_LABEL}}</span>
+            <span style="font-size: 9pt; opacity: 0.6;">INVOICE</span>
+          </div>
+          <div class="meta-row"><span>DATE</span> <span>{{DATE}}</span></div>
+          <div class="meta-row"><span>AGENT</span> <span>{{AGENT_TYPE}}</span></div>
+          <div class="meta-row"><span>CONTACT</span> <span>{{COMPANY_PHONE}}</span></div>
+        </div>
+      </div>
+
+      <div class="info-bar">
+        <div class="info-item" style="flex: 1;">BANK: {{COMPANY_BANK}}</div>
+        <div class="info-item" style="flex: 1.2;">A/C: {{COMPANY_ACC}}</div>
+        <div class="info-item" style="flex: 0.8;">IFSC: {{COMPANY_IFSC}}</div>
+      </div>
+
+      <div class="party-section">
+        <div class="section-label">Bill To</div>
+        <div class="party-name">{{PARTY_NAME}}</div>
+        <div class="party-address">{{PARTY_ADDRESS}}</div>
+        {{PARTY_GST_ROW}}
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 15%; border-left: none;">SIZE</th>
+            <th style="width: 45%;">PARTICULARS (HSN 6304)</th>
+            <th style="width: 10%;" class="text-center">QTY</th>
+            <th style="width: 12%;" class="text-center">RATE</th>
+            <th style="width: 18%; border-right: none;" class="text-right">AMOUNT</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ITEMS_ROWS}}
+          {{EMPTY_ROWS}}
+        </tbody>
+      </table>
+
+      <div class="calc-grid">
+        <div class="calc-notes">
+          <div class="section-label">Notes / Conditions</div>
+          {{COMPANY_TERMS}}
+        </div>
+        <div class="calc-table">
+          <div class="calc-row">
+            <div class="calc-label">Total Qty</div>
+            <div class="calc-value">{{TOTAL_QTY}}</div>
+          </div>
+          <div class="calc-row">
+            <div class="calc-label">Sub Total</div>
+            <div class="calc-value">&#8377; {{SUBTOTAL}}</div>
+          </div>
+          {{DISCOUNT_ROW}}
+          {{TAX_ROWS}}
+        </div>
+      </div>
+
+      <div class="total-strip">
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <div class="total-label">NET PAYABLE AMOUNT</div>
+          <div style="font-size: 8pt; font-weight: 600; text-transform: capitalize; letter-spacing: 0.5px;">Rupees {{AMOUNT_WORDS}}</div>
+        </div>
+        <div class="total-amount">&#8377; {{TOTAL_AMOUNT}}</div>
+      </div>
+
+      <div class="footer-section">
+        <div class="shipping-details">
+          <div class="section-label">Logistics Details</div>
+          <div style="display: flex; gap: 20px; font-weight: 800; font-size: 9pt; margin-top: 5px;">
+            <span>LORRY: {{LORRY}}</span>
+            <span>LR NO: {{LR_NO}}</span>
+          </div>
+          <div style="margin-top: 10px;">
+            <div class="section-label" style="font-size: 6pt;">Bale Tracking (Sync)</div>
+            <div class="bale-grid">{{BALE_GRID}}</div>
+          </div>
+        </div>
+        <div class="signature-area">
+          <div class="sig-title">For {{COMPANY_NAME}}</div>
+          <div style="border-top: 1pt dashed #ccc; padding-top: 5px; font-size: 8pt; font-weight: 900;">AUTHORISED SIGNATORY</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
