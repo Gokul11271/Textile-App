@@ -1,6 +1,6 @@
 const { BrowserWindow, app } = require('electron');
 const { dbAll, dbGet } = require('../database.cjs');
-const { renderTemplate } = require('./templateEngine.cjs');
+const { renderTemplate, clearCache } = require('./templateEngine.cjs');
 const { info, error: logError } = require('./logService.cjs');
 const fs = require('fs');
 const path = require('path');
@@ -270,6 +270,7 @@ const buildTemplateVars = (bill, items, type, settings) => {
 const getBillHtml = (bill, items, type = 'big', settings = {}) => {
   const vars = buildTemplateVars(bill, items, type, settings);
   const templateName = type === 'big' ? 'big.html' : 'transport.html';
+  clearCache(); // Force reload template without app restart during dev
   return renderTemplate(templateName, vars);
 };
 
@@ -302,7 +303,9 @@ const generateBillPdf = async (bill, items, type = 'big') => {
       const dir      = path.dirname(pdfPath);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-      const data = await win.webContents.printToPDF({ marginsType: 1, printBackground: true, pageSize: 'A4' });
+      const pdfOptions = { marginsType: 1, printBackground: true, pageSize: 'A4' };
+      if (type === 'transport') pdfOptions.landscape = true;
+      const data = await win.webContents.printToPDF(pdfOptions);
       fs.writeFileSync(pdfPath, data);
 
       info('printService', `PDF Generated: ${fileName}`, { billNumber: bill.billNumber, type });
@@ -326,8 +329,10 @@ const printBillDirect = async (bill, items, type = 'big', copies = 1) => {
       await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
       const result = await new Promise((resolve) => {
+        const printOptions = { silent: true, printBackground: true, deviceName: '', copies };
+        if (type === 'transport') printOptions.landscape = true;
         win.webContents.print(
-          { silent: true, printBackground: true, deviceName: '', copies },
+          printOptions,
           (success, failureReason) => {
             if (!success) resolve({ success: false, error: failureReason });
             else resolve({ success: true });
