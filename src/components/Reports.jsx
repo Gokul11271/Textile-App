@@ -134,6 +134,12 @@ export function Reports({ theme }) {
       .then(result => {
         if (result.success) {
           showAlert('✅ Bill deleted successfully', 'success');
+          // Refresh component data
+          if (startDate || endDate) {
+            handleFilter();
+          } else {
+            fetchInitialData();
+          }
         } else {
           showAlert('❌ Failed to delete bill: ' + result.error, 'error');
         }
