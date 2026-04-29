@@ -15,6 +15,8 @@ export function Reports({ theme }) {
   const { showAlert } = useAlert();
   const [bills, setBills] = useState([]);
   const [filteredBills, setFilteredBills] = useState([]);
+  const [isPending, startTransition] = React.useTransition();
+  const deferredBills = React.useDeferredValue(filteredBills);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,21 +115,27 @@ export function Reports({ theme }) {
     }
   };
 
-  const handleDeleteBill = async (billNumber) => {
-    if (window.confirm(`Are you sure you want to delete bill ${billNumber}? This action cannot be undone.`)) {
-      try {
-        const result = await window.electron.ipcRenderer.invoke('delete-bill', billNumber);
+  const handleDeleteBill = (billNumber) => {
+    if (!window.confirm(`Are you sure you want to delete bill ${billNumber}? This action cannot be undone.`)) return;
+
+    // 1. Instant UI update
+    startTransition(() => {
+      setBills(prev => prev.filter(b => b.bill_number !== billNumber));
+      setFilteredBills(prev => prev.filter(b => b.bill_number !== billNumber));
+    });
+
+    // 2. Background delete (non-blocking)
+    window.electron.ipcRenderer.invoke('delete-bill', billNumber)
+      .then(result => {
         if (result.success) {
           showAlert('✅ Bill deleted successfully', 'success');
-          // Update local state instead of full refetch for better UX
-          setBills(prev => prev.filter(b => b.bill_number !== billNumber));
         } else {
           showAlert('❌ Failed to delete bill: ' + result.error, 'error');
         }
-      } catch (error) {
-        showAlert('❌ Error deleting bill: ' + error.message, 'error');
-      }
-    }
+      })
+      .catch(err => {
+        showAlert('❌ Error deleting bill: ' + err.message, 'error');
+      });
   };
 
   const handleBatchUpdateLrAndPrint = async () => {
@@ -355,17 +363,17 @@ export function Reports({ theme }) {
                     </div>
                   </td>
                 </tr>
-              ) : filteredBills.length === 0 ? (
+              ) : deferredBills.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="px-6 py-16 text-center">
                     <p className="m3-body-large text-m3-on-surface-variant/50">No records found</p>
                   </td>
                 </tr>
               ) : (
-                filteredBills.map((bill, index) => {
+                deferredBills.map((bill) => {
                   const taxableValue = bill.total_amount - bill.tax_amount;
                   return (
-                    <tr key={index} className="hover:bg-m3-surface-container-low transition-colors">
+                    <tr key={bill.bill_number} className="hover:bg-m3-surface-container-low transition-colors">
                       <td className="px-6 py-4 m3-body-medium text-m3-on-surface">{bill.date}</td>
                       <td className="px-6 py-4 m3-label-large font-mono text-m3-on-surface">{bill.bill_number}</td>
                       <td className="px-6 py-4 m3-body-medium text-m3-on-surface max-w-[200px] truncate">
