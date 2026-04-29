@@ -32,7 +32,6 @@ export function Billing() {
     lrNumber: '',
     lorryOffice: '',
     isBaleEnabled: false,
-    isBaleSyncEnabled: false,
     baleNumbers: ['', '', '', '', '', '', '', ''],
     financialYear: '',
     totalAmount: 0,
@@ -132,22 +131,7 @@ export function Billing() {
     setBillData(prev => ({ ...prev, ...totals }))
   }, [calculateTotals])
 
-  useEffect(() => {
-    if (billData.isBaleSyncEnabled) {
-      setItems(prevItems => {
-        const needsUpdate = prevItems.some((item, idx) =>
-          idx < billData.baleNumbers.length && item.baleNumber !== billData.baleNumbers[idx]
-        );
-        if (!needsUpdate) return prevItems;
-        return prevItems.map((item, idx) => {
-          if (idx < billData.baleNumbers.length) {
-            return { ...item, baleNumber: billData.baleNumbers[idx] };
-          }
-          return item;
-        });
-      });
-    }
-  }, [billData.isBaleSyncEnabled, billData.baleNumbers]);
+  // Removed isBaleSyncEnabled useEffect
 
   const handleItemChange = (id, field, value) => {
     const newItems = items.map(item => {
@@ -156,7 +140,7 @@ export function Billing() {
         if (field === 'quantity' || field === 'rate') {
           updatedItem.amount = Number(updatedItem.quantity || 0) * Number(updatedItem.rate || 0)
         }
-        if (field === 'baleNumber' && billData.isBaleSyncEnabled) {
+        if (field === 'baleNumber') {
           const idx = items.findIndex(it => it.id === id);
           if (idx !== -1 && idx < billData.baleNumbers.length) {
             const newBales = [...billData.baleNumbers];
@@ -173,8 +157,7 @@ export function Billing() {
   }
 
   const addItem = () => {
-    const nextBale = (billData.isBaleSyncEnabled && items.length < billData.baleNumbers.length) ? billData.baleNumbers[items.length] : '';
-    const newItems = [...items, { id: Date.now(), size: '', productName: '', quantity: 0, rate: 0, amount: 0, baleNumber: nextBale }]
+    const newItems = [...items, { id: Date.now(), size: '', productName: '', quantity: 0, rate: 0, amount: 0, baleNumber: '' }]
     setItems(newItems)
     updateCalculations(newItems, billData)
   }
@@ -272,7 +255,10 @@ export function Billing() {
         lrNumber: oldBill.lr_number,
         lorryOffice: oldBill.lorry_office,
         isBaleEnabled: oldBill.is_bale_enabled === 1,
-        totalAmount: oldBill.total_amount
+        totalAmount: oldBill.total_amount,
+        baleNumbers: oldBill.bale_numbers ? 
+          (typeof oldBill.bale_numbers === 'string' ? JSON.parse(oldBill.bale_numbers) : oldBill.bale_numbers) 
+          : ['', '', '', '', '', '', '', '']
       }));
       setItems(oldBill.items.map(item => ({
         id: Date.now() + Math.random(),
@@ -393,7 +379,6 @@ export function Billing() {
       lrNumber: '',
       lorryOffice: '',
       isBaleEnabled: false,
-      isBaleSyncEnabled: false,
       baleNumbers: ['', '', '', '', '', '', '', ''],
       financialYear: '',
       totalAmount: 0,
@@ -915,15 +900,19 @@ export function Billing() {
             <div className="pt-3 border-t border-m3-outline-variant">
               <div className="flex items-center justify-between mb-3">
                 <span className="m3-label-medium text-m3-on-surface-variant">Bale Tracking</span>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={billData.isBaleSyncEnabled}
-                    onChange={e => setBillData({ ...billData, isBaleSyncEnabled: e.target.checked })}
-                    className="w-4 h-4 rounded accent-m3-primary"
-                  />
-                  <span className="m3-label-small text-m3-on-surface-variant">Sync</span>
-                </label>
+                <button
+                  onClick={() => {
+                    setItems(prevItems => prevItems.map((item, idx) => {
+                      if (idx < billData.baleNumbers.length && billData.baleNumbers[idx]) {
+                        return { ...item, baleNumber: billData.baleNumbers[idx] };
+                      }
+                      return item;
+                    }));
+                  }}
+                  className="px-3 py-1 rounded-md m3-label-small bg-m3-primary/10 text-m3-primary hover:bg-m3-primary hover:text-m3-on-primary transition-colors border border-m3-primary/20"
+                >
+                  Sync Bales
+                </button>
               </div>
               <div className="grid grid-cols-8 gap-1.5">
                 {billData.baleNumbers.map((num, idx) => (

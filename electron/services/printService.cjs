@@ -153,6 +153,15 @@ const buildTemplateVars = (bill, items, type, settings) => {
     ? `<div class="party-gst"><span class="highlighted">GSTIN/ID: ${formatGst(b.partyGst)}</span></div>`
     : '';
 
+  const isBaleEnabled = !!(bill.isBaleEnabled || bill.is_bale_enabled);
+
+  const BALE_TH = isBaleEnabled 
+    ? '<th style="width: 12%;" class="text-center">BALE</th>' 
+    : '';
+
+  const PARTICULARS_WIDTH = isBaleEnabled ? '33%' : '45%';
+  const PARTICULARS_TH = `<th style="width: ${PARTICULARS_WIDTH};">PARTICULARS (HSN 6304)</th>`;
+
   const MIN_ROWS_BIG       = 12;
   const MIN_ROWS_TRANSPORT = 8;
   const minRows = type === 'big' ? MIN_ROWS_BIG : MIN_ROWS_TRANSPORT;
@@ -163,11 +172,12 @@ const buildTemplateVars = (bill, items, type, settings) => {
       <td>${type === 'big' ? (item.productName || '') : '100% COTTON CLOTH'}</td>
       <td class="text-center">${item.quantity}</td>
       <td class="text-center">${Number(item.rate || 0).toFixed(2)}</td>
+      ${isBaleEnabled ? `<td class="text-center">${item.baleNumber || '-'}</td>` : ''}
       <td class="text-right" style="border-right: none;">${Number(item.amount || 0).toFixed(2)}</td>
     </tr>`).join('');
 
   const EMPTY_ROWS = Array(Math.max(0, minRows - items.length)).fill(0).map(() =>
-    `<tr style="height: 22px;"><td style="border-left: none;"></td><td></td><td></td><td></td><td style="border-right: none;"></td></tr>`
+    `<tr style="height: 22px;"><td style="border-left: none;"></td><td></td><td></td><td></td>${isBaleEnabled ? '<td></td>' : ''}<td style="border-right: none;"></td></tr>`
   ).join('');
 
   const TOTAL_QTY = items.reduce((s, i) => s + Number(i.quantity || 0), 0);
@@ -247,6 +257,8 @@ const buildTemplateVars = (bill, items, type, settings) => {
     PARTY_NAME:          b.partyName,
     PARTY_ADDRESS:       b.partyAddress,
     PARTY_GST_ROW:       type === 'big' ? PARTY_GST_ROW : PARTY_GST_ROW_HIGHLIGHT,
+    PARTICULARS_TH,
+    BALE_TH,
     ITEMS_ROWS,
     EMPTY_ROWS,
     TOTAL_QTY,
