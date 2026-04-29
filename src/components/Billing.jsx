@@ -432,6 +432,10 @@ export function Billing() {
         }
 
         loadStats(); // Refresh stats after save
+        // Refresh products so new items appear in recommendations for upcoming bills
+        if (window.electron.db.getProducts) {
+          window.electron.db.getProducts().then(p => setProducts(p || []));
+        }
         if (!silent) showAlert('✅ Bill ' + billData.billNumber + ' saved successfully!' + (pdfPath ? '\n📁 Saved to: ' + pdfPath : ''), 'success');
         return true;
       } else {

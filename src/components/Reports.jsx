@@ -50,27 +50,33 @@ export function Reports({ theme }) {
     fetchInitialData();
   }, []);
 
-  const fetchInitialData = async () => {
-    setLoading(true);
+  const fetchInitialData = async (isBackgroundRefresh = false) => {
+    const isBg = isBackgroundRefresh === true;
+    if (!isBg) setLoading(true);
     try {
       const data = await window.electron.ipcRenderer.invoke('get-sales-report');
-      setBills(data || []);
+      startTransition(() => {
+        setBills(data || []);
+      });
     } catch (error) {
       console.error('Error fetching sales report:', error);
     } finally {
-      setLoading(false);
+      if (!isBg) setLoading(false);
     }
   };
 
-  const handleFilter = async () => {
-    setLoading(true);
+  const handleFilter = async (isBackgroundRefresh = false) => {
+    const isBg = isBackgroundRefresh === true;
+    if (!isBg) setLoading(true);
     try {
       const data = await window.electron.ipcRenderer.invoke('get-sales-report', startDate, endDate);
-      setBills(data || []);
+      startTransition(() => {
+        setBills(data || []);
+      });
     } catch (error) {
       console.error('Error filtering sales report:', error);
     } finally {
-      setLoading(false);
+      if (!isBg) setLoading(false);
     }
   };
 
@@ -134,11 +140,11 @@ export function Reports({ theme }) {
       .then(result => {
         if (result.success) {
           showAlert('✅ Bill deleted successfully', 'success');
-          // Refresh component data
+          // Refresh component data in background
           if (startDate || endDate) {
-            handleFilter();
+            handleFilter(true);
           } else {
-            fetchInitialData();
+            fetchInitialData(true);
           }
         } else {
           showAlert('❌ Failed to delete bill: ' + result.error, 'error');
@@ -164,7 +170,7 @@ export function Reports({ theme }) {
         showAlert(`Updated LR for ${updateResult.count} bills. Print Completed: ${successCount}/${results.length} bills processed.`, 'success');
         
         // Update local state without full refetch if possible, or just refetch
-        handleFilter(); 
+        handleFilter(true); 
       } else {
         showAlert(updateResult.message || updateResult.error || 'Failed to update LR numbers', 'error');
       }
