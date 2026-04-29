@@ -200,10 +200,15 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('delete-bill', async (event, billNumber) => {
-    setImmediate(() => {
-      billService.deleteBill(billNumber).catch(err => console.error('Background delete error:', err));
+    setImmediate(async () => {
+      try {
+        await billService.deleteBill(billNumber);
+      } catch (err) {
+        console.error('Delete failed:', err);
+      }
     });
-    return { success: true };
+
+    return { success: true }; // UI optimistic
   });
 
   // Stats & Reports — delegated to reportService

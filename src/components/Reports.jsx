@@ -11,12 +11,19 @@ import {
   Trash2
 } from 'lucide-react';
 
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 export function Reports({ theme }) {
   const { showAlert } = useAlert();
   const [bills, setBills] = useState([]);
-  const [filteredBills, setFilteredBills] = useState([]);
   const [isPending, startTransition] = React.useTransition();
-  const deferredBills = React.useDeferredValue(filteredBills);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,6 +32,19 @@ export function Reports({ theme }) {
   const [batchEnd, setBatchEnd] = useState('');
   const [batchLr, setBatchLr] = useState('');
   const [printing, setPrinting] = useState(false);
+
+  const debouncedSearch = useDebounce(searchTerm, 300);
+
+  const filteredBills = React.useMemo(() => {
+    return bills.filter(bill =>
+      bill.bill_number.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      bill.party_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      bill.party_short_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      bill.party_gst_number?.toLowerCase().includes(debouncedSearch.toLowerCase())
+    );
+  }, [bills, debouncedSearch]);
+
+  const deferredBills = React.useDeferredValue(filteredBills);
 
   useEffect(() => {
     fetchInitialData();
@@ -35,7 +55,6 @@ export function Reports({ theme }) {
     try {
       const data = await window.electron.ipcRenderer.invoke('get-sales-report');
       setBills(data || []);
-      setFilteredBills(data || []);
     } catch (error) {
       console.error('Error fetching sales report:', error);
     } finally {
@@ -47,28 +66,13 @@ export function Reports({ theme }) {
     setLoading(true);
     try {
       const data = await window.electron.ipcRenderer.invoke('get-sales-report', startDate, endDate);
-      setBills(data);
-      applySearch(data, searchTerm);
+      setBills(data || []);
     } catch (error) {
       console.error('Error filtering sales report:', error);
     } finally {
       setLoading(false);
     }
   };
-
-  const applySearch = (data, term) => {
-    const filtered = data.filter(bill => 
-      bill.bill_number.toLowerCase().includes(term.toLowerCase()) ||
-      bill.party_name?.toLowerCase().includes(term.toLowerCase()) ||
-      bill.party_short_name?.toLowerCase().includes(term.toLowerCase()) ||
-      bill.party_gst_number?.toLowerCase().includes(term.toLowerCase())
-    );
-    setFilteredBills(filtered);
-  };
-
-  useEffect(() => {
-    applySearch(bills, searchTerm);
-  }, [searchTerm, bills]);
 
   const exportCSV = async () => {
     const headers = ['Date', 'Bill No', 'Party Name', 'GST Number', 'Taxable Value', 'Tax Rate', 'Tax Amount', 'Total Amount', 'LR No', 'Lorry Office'];
@@ -88,7 +92,7 @@ export function Reports({ theme }) {
       ].map(val => `"${val}"`).join(',');
     });
 
-    const csvContent = [headers.join(','), ...rows].join('\n');
+    const csvContent = "\uFEFF" + [headers.join(','), ...rows].join('\n');
     const filename = `Sales_Report_${startDate || 'All'}_to_${endDate || 'Now'}.csv`;
     
     const result = await window.electron.ipcRenderer.invoke('export-to-csv', csvContent, filename);
@@ -121,8 +125,9 @@ export function Reports({ theme }) {
     // 1. Instant UI update
     startTransition(() => {
       setBills(prev => prev.filter(b => b.bill_number !== billNumber));
-      setFilteredBills(prev => prev.filter(b => b.bill_number !== billNumber));
     });
+
+    showAlert('Deleting...', 'info');
 
     // 2. Background delete (non-blocking)
     window.electron.ipcRenderer.invoke('delete-bill', billNumber)
@@ -165,14 +170,16 @@ export function Reports({ theme }) {
     }
   };
 
-  const totals = filteredBills.reduce((acc, b) => {
-    const taxableValue = b.total_amount - b.tax_amount;
-    return {
-      taxable: acc.taxable + taxableValue,
-      tax: acc.tax + b.tax_amount,
-      total: acc.total + b.total_amount
-    };
-  }, { taxable: 0, tax: 0, total: 0 });
+  const totals = React.useMemo(() => {
+    return filteredBills.reduce((acc, b) => {
+      const taxableValue = (b.total_amount || 0) - (b.tax_amount || 0);
+      return {
+        taxable: acc.taxable + taxableValue,
+        tax: acc.tax + (b.tax_amount || 0),
+        total: acc.total + (b.total_amount || 0)
+      };
+    }, { taxable: 0, tax: 0, total: 0 });
+  }, [filteredBills]);
 
   const inputBase = "w-full rounded-md px-4 py-2.5 m3-body-medium bg-m3-surface-container-highest border border-m3-outline-variant text-m3-on-surface placeholder:text-m3-on-surface-variant/50 focus:border-m3-primary focus:ring-2 focus:ring-m3-primary/20 outline-none transition-all";
   const labelBase = "m3-label-medium text-m3-on-surface-variant mb-1.5 block";
@@ -371,7 +378,7 @@ export function Reports({ theme }) {
                 </tr>
               ) : (
                 deferredBills.map((bill) => {
-                  const taxableValue = bill.total_amount - bill.tax_amount;
+                  const taxableValue = (bill.total_amount || 0) - (bill.tax_amount || 0);
                   return (
                     <tr key={bill.bill_number} className="hover:bg-m3-surface-container-low transition-colors">
                       <td className="px-6 py-4 m3-body-medium text-m3-on-surface">{bill.date}</td>
