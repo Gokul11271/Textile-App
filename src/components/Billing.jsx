@@ -679,7 +679,7 @@ export function Billing() {
               <div className="flex items-center gap-2 bg-m3-surface-container px-3 py-1.5 rounded-full">
                 <span className="m3-label-small text-m3-on-surface-variant">Agent:</span>
                 <select
-                  value={billData.agentId}
+                  value={billData.agentId || ''}
                   onChange={e => setBillData({ ...billData, agentId: e.target.value })}
                   className="bg-transparent focus:outline-none m3-label-medium text-m3-on-surface cursor-pointer"
                 >

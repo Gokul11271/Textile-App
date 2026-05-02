@@ -1,0 +1,104 @@
+    <div class="bill-copy">
+      <div class="copy-label">{{COPY_LABEL}}</div>
+
+      <div class="header-section">
+        <div class="brand-area">
+          <h1>{{COMPANY_NAME}}</h1>
+          <p>{{COMPANY_ADDRESS1}}</p>
+          <p>{{COMPANY_ADDRESS2}}</p>
+          <p style="color:#000; margin-top:8px;">GSTIN: {{COMPANY_GST}}</p>
+        </div>
+        <div class="meta-area">
+          <div class="invoice-title">
+            <span>#{{BILL_NUMBER}}{{FINANCIAL_YEAR_LABEL}}</span>
+            <span style="font-size: 9pt; opacity: 0.6;">INVOICE</span>
+          </div>
+          <div class="meta-row"><span>DATE</span> <span>{{DATE}}</span></div>
+          <div class="meta-row"><span>AGENT</span> <span>{{AGENT_TYPE}}</span></div>
+          <div class="meta-row"><span>CONTACT</span> <span>{{COMPANY_PHONE}}</span></div>
+        </div>
+      </div>
+
+      {{BANK_BAR}}
+
+      <div class="party-section">
+        <div class="section-label">Bill To</div>
+        <div class="party-name">{{PARTY_NAME}}</div>
+        <div class="party-address">{{PARTY_ADDRESS}}</div>
+        {{PARTY_GST_ROW}}
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 15%;">SIZE</th>
+              {{PARTICULARS_TH}}
+              <th style="width: 10%;" class="text-center">QTY</th>
+              <th style="width: 12%;" class="text-center">RATE</th>
+              {{BALE_TH}}
+              <th style="width: 18%;" class="text-right">AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ITEMS_ROWS}}
+            {{EMPTY_ROWS}}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="calc-grid">
+        <div class="calc-notes">
+          <div class="section-label">Notes / Conditions</div>
+          {{COMPANY_TERMS}}
+        </div>
+        <div class="calc-table">
+          <div class="calc-row">
+            <div class="calc-label">Total Qty</div>
+            <div class="calc-value">{{TOTAL_QTY}}</div>
+          </div>
+          <div class="calc-row">
+            <div class="calc-label">Sub Total</div>
+            <div class="calc-value">
+              <div class="amount-box">
+                <span>&#8377;</span>
+                <span>{{SUBTOTAL}}</span>
+              </div>
+            </div>
+          </div>
+          {{DISCOUNT_ROW}}
+          {{TAX_ROWS}}
+        </div>
+      </div>
+
+      <div class="total-strip">
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <div class="total-label">NET PAYABLE AMOUNT</div>
+          <div style="font-size: 8pt; font-weight: 600; text-transform: capitalize; letter-spacing: 0.5px; color: #333;">Rupees {{AMOUNT_WORDS}}</div>
+        </div>
+        <div class="total-amount">
+          <div class="amount-box net-value">
+            <span>&#8377;</span>
+            <span>{{TOTAL_AMOUNT}}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-section">
+        <div class="shipping-details">
+          <div class="section-label">Logistics Details</div>
+          <div style="display: flex; gap: 20px; font-weight: 800; font-size: 9pt; margin-top: 5px;">
+            <span>LORRY: {{LORRY}}</span>
+            <span>LR NO: {{LR_NO}}</span>
+          </div>
+          <div style="margin-top: 10px;">
+            <div class="section-label" style="font-size: 6.5pt;">Bale Tracking (Sync)</div>
+            <div class="bale-grid">{{BALE_GRID_TRANSPORT}}</div>
+          </div>
+        </div>
+        <div class="signature-area">
+          <div class="sig-title">For {{COMPANY_NAME}}</div>
+          <div style="border-top: 1pt dashed #ccc; padding-top: 5px; font-size: 8pt; font-weight: 900;">AUTHORISED SIGNATORY</div>
+        </div>
+      </div>
+    </div>

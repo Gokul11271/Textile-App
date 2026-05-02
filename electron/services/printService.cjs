@@ -168,16 +168,16 @@ const buildTemplateVars = (bill, items, type, settings) => {
 
   const ITEMS_ROWS = items.map(item => `
     <tr>
-      <td class="text-center" style="border-left: none;">${item.size || '-'}</td>
+      <td class="text-center">${item.size || '-'}</td>
       <td>${type === 'big' ? (item.productName || '') : '100% COTTON CLOTH'}</td>
       <td class="text-center">${item.quantity}</td>
       <td class="text-center">${Number(item.rate || 0).toFixed(2)}</td>
       ${isBaleEnabled ? `<td class="text-center">${item.baleNumber || '-'}</td>` : ''}
-      <td class="text-right" style="border-right: none;">${Number(item.amount || 0).toFixed(2)}</td>
+      <td class="text-right">${Number(item.amount || 0).toFixed(2)}</td>
     </tr>`).join('');
 
   const EMPTY_ROWS = Array(Math.max(0, minRows - items.length)).fill(0).map(() =>
-    `<tr style="height: 22px;"><td style="border-left: none;"></td><td></td><td></td><td></td>${isBaleEnabled ? '<td></td>' : ''}<td style="border-right: none;"></td></tr>`
+    `<tr><td></td><td></td><td></td><td></td>${isBaleEnabled ? '<td></td>' : ''}<td></td></tr>`
   ).join('');
 
   const TOTAL_QTY = items.reduce((s, i) => s + Number(i.quantity || 0), 0);
@@ -185,19 +185,22 @@ const buildTemplateVars = (bill, items, type, settings) => {
   const DISCOUNT_ROW = b.discountAmount > 0 ? `
     <div class="calc-row">
       <div class="calc-label">Discount ${discountText}</div>
-      <div class="calc-value" style="color: #666;">- &#8377; ${b.discountAmount.toFixed(2)}</div>
+      <div class="calc-value" style="color: #666;">
+        <div class="amount-box">
+          <span>- &#8377;</span>
+          <span>${b.discountAmount.toFixed(2)}</span>
+        </div>
+      </div>
     </div>` : '';
 
   const TAX_ROWS_BIG = isLocal ? `
-    <div class="calc-row" style="flex-direction: column;">
-      <div style="display:flex; width:100%; border-bottom: 0.5pt solid #000;">
-        <div class="calc-label" style="border-bottom:none;">CGST (${splitTaxRate}%)</div>
-        <div class="calc-value">${(b.taxAmount / 2).toFixed(2)}</div>
-      </div>
-      <div style="display:flex; width:100%;">
-        <div class="calc-label" style="border-bottom:none;">SGST (${splitTaxRate}%)</div>
-        <div class="calc-value">${(b.taxAmount / 2).toFixed(2)}</div>
-      </div>
+    <div class="calc-row">
+      <div class="calc-label">CGST (${splitTaxRate}%)</div>
+      <div class="calc-value">${(b.taxAmount / 2).toFixed(2)}</div>
+    </div>
+    <div class="calc-row">
+      <div class="calc-label">SGST (${splitTaxRate}%)</div>
+      <div class="calc-value">${(b.taxAmount / 2).toFixed(2)}</div>
     </div>` : `
     <div class="calc-row">
       <div class="calc-label">IGST (${taxRate}%)</div>
@@ -205,15 +208,13 @@ const buildTemplateVars = (bill, items, type, settings) => {
     </div>`;
 
   const TAX_ROWS_TRANSPORT = isLocal ? `
-    <div class="calc-row" style="flex-direction: column;">
-      <div style="display:flex; width:100%; border-bottom: 0.5pt solid #000;">
-        <div class="calc-label" style="border-bottom:none;">CGST (${splitTaxRate}%)</div>
-        <div class="calc-value">${transportSplitTaxAmt}</div>
-      </div>
-      <div style="display:flex; width:100%;">
-        <div class="calc-label" style="border-bottom:none;">SGST (${splitTaxRate}%)</div>
-        <div class="calc-value">${transportSplitTaxAmt}</div>
-      </div>
+    <div class="calc-row">
+      <div class="calc-label">CGST (${splitTaxRate}%)</div>
+      <div class="calc-value">${transportSplitTaxAmt}</div>
+    </div>
+    <div class="calc-row">
+      <div class="calc-label">SGST (${splitTaxRate}%)</div>
+      <div class="calc-value">${transportSplitTaxAmt}</div>
     </div>` : `
     <div class="calc-row">
       <div class="calc-label">IGST (${taxRate}%)</div>
@@ -281,9 +282,17 @@ const buildTemplateVars = (bill, items, type, settings) => {
 
 const getBillHtml = (bill, items, type = 'big', settings = {}) => {
   const vars = buildTemplateVars(bill, items, type, settings);
-  const templateName = type === 'big' ? 'big.html' : 'transport.html';
   clearCache(); // Force reload template without app restart during dev
-  return renderTemplate(templateName, vars);
+  
+  if (type === 'transport') {
+    const copies = ['Transport Copy - Original for Recipient', 'Transport Copy - Duplicate for Supplier'];
+    const copiesHtml = copies.map(label => {
+      return renderTemplate('transport_inner.html', { ...vars, COPY_LABEL: label });
+    }).join('');
+    return renderTemplate('transport.html', { ...vars, COPIES_HTML: copiesHtml });
+  } else {
+    return renderTemplate('big.html', vars);
+  }
 };
 
 // ─── Print Window (Singleton) ─────────────────────────────────────────────────
