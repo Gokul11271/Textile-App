@@ -339,16 +339,9 @@ export function Billing() {
         const result = await window.electron.ipcRenderer.invoke('delete-bill', billData.billNumber);
         if (result.success) {
           showAlert('✅ Bill deleted successfully', 'success');
-          loadStats();
-          // After delete, clear the form but maybe suggest the next number or just refresh
-          window.electron.db.getLastBillNumber().then(lastNo => {
-            if (lastNo) {
-              const nextNo = (parseInt(lastNo) + 1).toString();
-              resetForm(nextNo);
-            } else {
-              resetForm('1');
-            }
-          });
+          setTimeout(() => {
+            window.location.reload();
+          }, 300);
         } else {
           showAlert('❌ Failed to delete bill: ' + result.error, 'error');
         }

@@ -9,8 +9,12 @@ import { AlertProvider } from './components/AlertProvider'
 import { Toaster } from 'sonner'
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('dashboard')
+  const [currentPage, setCurrentPage] = useState(localStorage.getItem('currentPage') || 'dashboard')
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark')
+
+  useEffect(() => {
+    localStorage.setItem('currentPage', currentPage)
+  }, [currentPage])
 
   useEffect(() => {
     localStorage.setItem('theme', theme)

@@ -23,6 +23,14 @@
       }
     }
 
+    @media screen {
+      body {
+        max-width: 285mm;
+        margin: 20px auto;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      }
+    }
+
     body {
       font-family: Arial, sans-serif;
       color: #000;
@@ -139,6 +147,9 @@
     .party-section {
       padding: 8px 10px;
       border-bottom: 1.5pt solid #000;
+      min-height: 85px; /* PHASE 2: Very Small Data Block */
+      display: flex;
+      flex-direction: column;
     }
 
     .section-label {
@@ -153,11 +164,16 @@
       font-size: 11pt;
       font-weight: 900;
       margin-bottom: 2px;
+      word-break: break-word; /* PHASE 1: Text Wrapping */
+      white-space: normal;
     }
 
     .party-address {
       font-size: 8pt;
       font-weight: bold;
+      word-break: break-word; /* PHASE 1: Text Wrapping */
+      white-space: normal;
+      flex-grow: 1; /* Pushes GST to bottom if short address */
     }
 
     .party-gst {
@@ -193,6 +209,11 @@
       text-align: left;
       border-bottom: 1.5pt solid #000;
       font-weight: 900;
+      /* Fixed columns logic provided inline by printService */
+    }
+
+    tbody tr {
+      height: 24px; /* PHASE 3: Fixed Row Height */
     }
 
     td {
@@ -202,6 +223,11 @@
       border-bottom: 0.5pt solid #444;
       font-size: 8.5pt;
       font-weight: bold;
+      
+      /* PHASE 3: Overflow Handling */
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     
     td:first-child { border-left: none; }
@@ -223,6 +249,8 @@
       border-right: 1.5pt solid #000;
       font-size: 7.5pt;
       font-weight: bold;
+      word-break: break-word; /* Wrapping for notes */
+      white-space: normal;
     }
 
     .calc-table {
@@ -264,6 +292,7 @@
       padding: 10px;
       background: #000;
       color: #fff;
+      height: 55px; /* PHASE 5: Net amount block always fixed height */
     }
 
     .total-label {
