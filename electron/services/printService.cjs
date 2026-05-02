@@ -160,7 +160,7 @@ const buildTemplateVars = (bill, items, type, settings) => {
     : '';
 
   const PARTICULARS_WIDTH = isBaleEnabled ? '33%' : '45%';
-  const PARTICULARS_TH = `<th style="width: ${PARTICULARS_WIDTH};">PARTICULARS (HSN 6304)</th>`;
+  const PARTICULARS_TH = `<th style="width: ${PARTICULARS_WIDTH};" class="text-center">PARTICULARS (HSN 6304)</th>`;
 
   const MIN_ROWS_BIG       = 12;
   const MIN_ROWS_TRANSPORT = 8;
@@ -169,11 +169,11 @@ const buildTemplateVars = (bill, items, type, settings) => {
   const ITEMS_ROWS = items.map(item => `
     <tr>
       <td class="text-center">${item.size || '-'}</td>
-      <td>${type === 'big' ? (item.productName || '') : '100% COTTON CLOTH'}</td>
+      <td class="text-center">${type === 'big' ? (item.productName || '') : '100% COTTON CLOTH'}</td>
       <td class="text-center">${item.quantity}</td>
       <td class="text-center">${Number(item.rate || 0).toFixed(2)}</td>
       ${isBaleEnabled ? `<td class="text-center">${item.baleNumber || '-'}</td>` : ''}
-      <td class="text-right">${Number(item.amount || 0).toFixed(2)}</td>
+      <td class="text-center">${Number(item.amount || 0).toFixed(2)}</td>
     </tr>`).join('');
 
   const EMPTY_ROWS = Array(Math.max(0, minRows - items.length)).fill(0).map(() =>

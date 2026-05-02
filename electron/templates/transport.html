@@ -206,22 +206,23 @@
       background: none;
       color: #000;
       font-size: 7.5pt;
-      padding: 5px 6px;
-      text-align: left;
+      padding: 8px 10px;
+      text-align: center;
       border-bottom: 1.5pt solid #000;
       font-weight: 900;
       /* Fixed columns logic provided inline by printService */
     }
 
     tbody tr {
-      height: 24px; /* PHASE 3: Fixed Row Height */
+      height: 28px; /* PHASE 3: Fixed Row Height slightly increased */
     }
 
     td {
-      padding: 3px 6px;
+      padding: 8px 10px;
       border-bottom: 0.5pt solid #444;
       font-size: 8.5pt;
       font-weight: bold;
+      text-align: center;
       
       /* PHASE 4: Text Overflow */
       white-space: normal;
@@ -268,27 +269,30 @@
     }
 
     .calc-label {
-      padding: 4px 8px;
+      padding: 8px 10px;
       font-size: 8pt;
       font-weight: 900;
       border-right: 1.5pt solid #000;
       background: none;
       display: flex;
       align-items: center;
+      justify-content: center;
+      text-align: center;
     }
 
     .calc-value {
-      padding: 4px 8px;
+      padding: 8px 10px;
       font-size: 9pt;
       font-weight: 900;
       display: flex;
-      justify-content: flex-end;
+      justify-content: center;
       align-items: center;
+      text-align: center;
     }
 
     .amount-box {
       display: flex;
-      justify-content: flex-end;
+      justify-content: center;
       align-items: center;
       gap: 4px;
     }
@@ -312,12 +316,20 @@
     }
 
     .total-amount {
-      padding-right: 8px;
+      padding-right: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     .net-value {
       font-size: 16pt;
       font-weight: 900;
+      width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.5px;
     }
 
     /* Footer */
@@ -369,5 +381,28 @@
   <div class="sheet">
     {{COPIES_HTML}}
   </div>
+  <script>
+    function fitText(elements, maxFont = 16, minFont = 9) {
+      elements.forEach(element => {
+        let fontSize = maxFont;
+        element.style.fontSize = fontSize + "pt";
+        
+        while (element.scrollWidth > element.offsetWidth && fontSize > minFont) {
+          fontSize--;
+          element.style.fontSize = fontSize + "pt";
+        }
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // Scale down net amounts if they get too large
+      const netValues = document.querySelectorAll(".net-value");
+      fitText(netValues, 16, 9);
+      
+      // Also scale down subtotals if needed
+      const subtotals = document.querySelectorAll(".calc-value .amount-box");
+      fitText(subtotals, 9, 6);
+    });
+  </script>
 </body>
 </html>
