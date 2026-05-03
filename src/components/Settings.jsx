@@ -1,6 +1,6 @@
 import { useAlert } from './AlertProvider';
 import React, { useState, useEffect } from 'react';
-import { Download, Upload, RotateCcw, Save } from 'lucide-react';
+import { Download, Upload, RotateCcw, Save, FileText, Eye, X } from 'lucide-react';
 
 export default function Settings() {
   const { showAlert } = useAlert();
@@ -37,6 +37,44 @@ export default function Settings() {
   });
 
   const [saving, setSaving] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  const handlePreview = async (type, copiesCount = 2) => {
+    if (!window.electron?.ipcRenderer) return;
+    
+    const dummyBill = {
+      bill_number: '1001',
+      date: '01/01/2026',
+      party_name: 'SAMPLE PARTY NAME',
+      party_address: '123 Sample Street, Sample City',
+      party_gst: '33SAMPLEGSTIN12',
+      tax_rate: 5,
+      tax_amount: 50,
+      total_amount: 1050,
+      discount_percent: 0,
+      discount_amount: 0,
+      lorry_office: 'SAMPLE TRANSPORT',
+      lr_number: '12345',
+      is_inter_state: 0,
+      agent_id: null,
+      bale_numbers: '["B1", "B2"]',
+      financialYear: '2025-2026'
+    };
+    
+    const dummyItems = [
+      { size: 'L', quantity: 10, rate: 50, bale_number: 'B1', amount: 500 },
+      { size: 'XL', quantity: 10, rate: 50, bale_number: 'B2', amount: 500 }
+    ];
+
+    try {
+      const html = await window.electron.ipcRenderer.invoke('get-bill-preview', dummyBill, dummyItems, type, copiesCount);
+      setPreviewHtml(html);
+      setPreviewOpen(true);
+    } catch (err) {
+      showAlert('Failed to generate preview', 'error');
+    }
+  };
 
   useEffect(() => {
     loadSettings();
@@ -130,6 +168,7 @@ export default function Settings() {
           <div className="bg-white dark:bg-m3-surface-container rounded-2xl shadow-sm border border-gray-100 dark:border-m3-outline-variant overflow-hidden flex flex-col">
             <button onClick={() => setActiveTab('company')} className={`p-4 text-left font-medium transition-colors ${activeTab === 'company' ? 'bg-blue-50/80 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-l-4 border-blue-600' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-m3-surface-container-highest border-l-4 border-transparent'}`}>Company Profile</button>
             <button onClick={() => setActiveTab('preferences')} className={`p-4 text-left font-medium transition-colors ${activeTab === 'preferences' ? 'bg-blue-50/80 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-l-4 border-blue-600' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-m3-surface-container-highest border-l-4 border-transparent'}`}>Invoice Preferences</button>
+            <button onClick={() => setActiveTab('templates')} className={`p-4 text-left font-medium transition-colors border-t border-gray-100 dark:border-m3-outline-variant ${activeTab === 'templates' ? 'bg-blue-50/80 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-l-4 border-blue-600' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-m3-surface-container-highest border-l-4 border-transparent'}`}>Template Previews</button>
             {/* Data Management tab is hidden per user request, but code remains */}
             {/* <button onClick={() => setActiveTab('data')} className={`p-4 text-left font-medium transition-colors border-t border-gray-100 dark:border-m3-outline-variant ${activeTab === 'data' ? 'bg-blue-50/80 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-l-4 border-blue-600' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-m3-surface-container-highest border-l-4 border-transparent'}`}>Data & Backup</button> */}
           </div>
@@ -267,6 +306,48 @@ export default function Settings() {
             </div>
           )}
 
+          {activeTab === 'templates' && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-white pb-2">Bill Template Previews</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Preview how your invoices and transport copies will look when printed.</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="border border-gray-200 dark:border-m3-outline rounded-2xl p-6 flex flex-col hover:shadow-md transition-shadow bg-white dark:bg-m3-surface-container">
+                  <div className="bg-blue-50 dark:bg-blue-900/30 p-3.5 rounded-xl w-fit mb-4 text-blue-600 dark:text-blue-400">
+                    <FileText size={24} />
+                  </div>
+                  <h3 className="font-bold text-gray-900 dark:text-white text-lg">Transport Bill - 1 Copy</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 mt-2">Single layout, centered horizontally. Designed for when only one physical copy is required.</p>
+                  <button onClick={() => handlePreview('transport', 1)} className="mt-auto bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-m3-surface-container-highest dark:text-white dark:hover:bg-m3-outline px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                    <Eye size={18} /> Preview 1 Copy
+                  </button>
+                </div>
+
+                <div className="border border-gray-200 dark:border-m3-outline rounded-2xl p-6 flex flex-col hover:shadow-md transition-shadow bg-white dark:bg-m3-surface-container">
+                  <div className="bg-indigo-50 dark:bg-indigo-900/30 p-3.5 rounded-xl w-fit mb-4 text-indigo-600 dark:text-indigo-400">
+                    <FileText size={24} />
+                  </div>
+                  <h3 className="font-bold text-gray-900 dark:text-white text-lg">Transport Bill - 2 Copies</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 mt-2">Split layout, side-by-side. Designed to print the Original and Duplicate on the same A4 page.</p>
+                  <button onClick={() => handlePreview('transport', 2)} className="mt-auto bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-m3-surface-container-highest dark:text-white dark:hover:bg-m3-outline px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                    <Eye size={18} /> Preview 2 Copies
+                  </button>
+                </div>
+
+                <div className="border border-gray-200 dark:border-m3-outline rounded-2xl p-6 flex flex-col hover:shadow-md transition-shadow bg-white dark:bg-m3-surface-container">
+                  <div className="bg-green-50 dark:bg-green-900/30 p-3.5 rounded-xl w-fit mb-4 text-green-600 dark:text-green-400">
+                    <FileText size={24} />
+                  </div>
+                  <h3 className="font-bold text-gray-900 dark:text-white text-lg">Transport Bill - 3 Copies</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 mt-2">Paginates across two sheets: 1st sheet gets Split layout (Copies 1-2), 2nd sheet gets Single layout (Copy 3).</p>
+                  <button onClick={() => handlePreview('transport', 3)} className="mt-auto bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-m3-surface-container-highest dark:text-white dark:hover:bg-m3-outline px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                    <Eye size={18} /> Preview 3 Copies
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'data' && (
             <div className="space-y-6 animate-in fade-in duration-300">
               <h2 className="text-xl font-bold text-gray-800 dark:text-white pb-2">Business Continuity</h2>
@@ -309,6 +390,32 @@ export default function Settings() {
           )}
         </div>
       </div>
+
+      {/* Preview Modal */}
+      {previewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-m3-surface-container rounded-2xl shadow-2xl w-full max-w-6xl max-h-full flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-m3-outline-variant bg-gray-50 dark:bg-m3-surface-container-highest">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                <Eye size={20} className="text-blue-600 dark:text-blue-400" />
+                Template Preview
+              </h3>
+              <button onClick={() => setPreviewOpen(false)} className="p-2 text-gray-500 hover:text-gray-800 dark:hover:text-white bg-gray-200 dark:bg-m3-outline/30 hover:bg-gray-300 dark:hover:bg-m3-outline/50 rounded-full transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto bg-gray-100 p-4 sm:p-8 flex justify-center">
+              {/* iframe scales to fit A4 landscape content roughly */}
+              <iframe 
+                srcDoc={previewHtml} 
+                className="bg-white shadow-lg w-full"
+                style={{ aspectRatio: '1.414 / 1', maxWidth: '285mm' }} 
+                title="Bill Preview"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -156,11 +156,10 @@ const buildTemplateVars = (bill, items, type, settings) => {
   const isBaleEnabled = !!(bill.isBaleEnabled || bill.is_bale_enabled);
 
   const BALE_TH = isBaleEnabled 
-    ? '<th style="width: 12%;" class="text-center">BALE</th>' 
+    ? '<th style="width: 60px;" class="text-center">BALE</th>' 
     : '';
 
-  const PARTICULARS_WIDTH = isBaleEnabled ? '33%' : '45%';
-  const PARTICULARS_TH = `<th style="width: ${PARTICULARS_WIDTH};" class="text-center">PARTICULARS (HSN 6304)</th>`;
+  const PARTICULARS_TH = `<th class="text-left">PARTICULARS (HSN 6304)</th>`;
 
   const MIN_ROWS_BIG       = 12;
   const MIN_ROWS_TRANSPORT = 8;
@@ -169,11 +168,11 @@ const buildTemplateVars = (bill, items, type, settings) => {
   const ITEMS_ROWS = items.map(item => `
     <tr>
       <td class="text-center">${item.size || '-'}</td>
-      <td class="text-center">${type === 'big' ? (item.productName || '') : '100% COTTON CLOTH'}</td>
-      <td class="text-center">${item.quantity}</td>
-      <td class="text-center">${Number(item.rate || 0).toFixed(2)}</td>
+      <td class="text-left">${type === 'big' ? (item.productName || '') : '100% COTTON CLOTH'}</td>
+      <td class="text-center numeric-cell">${item.quantity}</td>
+      <td class="text-center numeric-cell">${Number(item.rate || 0).toFixed(2)}</td>
       ${isBaleEnabled ? `<td class="text-center">${item.baleNumber || '-'}</td>` : ''}
-      <td class="text-center">${Number(item.amount || 0).toFixed(2)}</td>
+      <td class="text-center numeric-cell">${Number(item.amount || 0).toFixed(2)}</td>
     </tr>`).join('');
 
   const EMPTY_ROWS = Array(Math.max(0, minRows - items.length)).fill(0).map(() =>
@@ -280,16 +279,36 @@ const buildTemplateVars = (bill, items, type, settings) => {
 
 // ─── Public: HTML Generator ───────────────────────────────────────────────────
 
-const getBillHtml = (bill, items, type = 'big', settings = {}) => {
+const getBillHtml = (bill, items, type = 'big', settings = {}, copiesCount = 2) => {
   const vars = buildTemplateVars(bill, items, type, settings);
   clearCache(); // Force reload template without app restart during dev
   
   if (type === 'transport') {
-    const copies = ['Transport Copy - Original for Recipient', 'Transport Copy - Duplicate for Supplier'];
-    const copiesHtml = copies.map(label => {
-      return renderTemplate('transport_inner.html', { ...vars, COPY_LABEL: label });
-    }).join('');
-    return renderTemplate('transport.html', { ...vars, COPIES_HTML: copiesHtml });
+    const getCopyLabel = (index) => {
+      if (index === 0) return 'Transport Copy - Original for Recipient';
+      if (index === 1) return 'Transport Copy - Duplicate for Supplier';
+      if (index === 2) return 'Transport Copy - Triplicate';
+      if (index === 3) return 'Transport Copy - Quadruplicate';
+      return `Transport Copy - Copy ${index + 1}`;
+    };
+
+    const actualCopiesCount = Math.max(1, copiesCount);
+    let sheetsHtml = '';
+
+    for (let i = 0; i < actualCopiesCount; i += 2) {
+      const isSingle = (i === actualCopiesCount - 1);
+      const modeClass = isSingle ? 'single-mode' : 'double-mode';
+      
+      const copiesToRender = isSingle ? [getCopyLabel(i)] : [getCopyLabel(i), getCopyLabel(i + 1)];
+      
+      const copiesHtml = copiesToRender.map(label => {
+        return renderTemplate('transport_inner.html', { ...vars, COPY_LABEL: label });
+      }).join('');
+      
+      sheetsHtml += `<div class="sheet ${modeClass}">${copiesHtml}</div>`;
+    }
+
+    return renderTemplate('transport.html', { ...vars, SHEETS_HTML: sheetsHtml });
   } else {
     return renderTemplate('big.html', vars);
   }
@@ -345,13 +364,16 @@ const printBillDirect = async (bill, items, type = 'big', copies = 1) => {
     try {
       const win      = getPrintWindow();
       const settings = await getSettingsObj();
-      const html     = getBillHtml(bill, items, type, settings);
+      const html     = getBillHtml(bill, items, type, settings, copies);
 
       await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
       const result = await new Promise((resolve) => {
         const printOptions = { silent: true, printBackground: true, deviceName: '', copies };
-        if (type === 'transport') printOptions.landscape = true;
+        if (type === 'transport') {
+          printOptions.landscape = true;
+          printOptions.copies = 1; // Both copies are rendered on the same page
+        }
         win.webContents.print(
           printOptions,
           (success, failureReason) => {

@@ -71,9 +71,9 @@ function setupIpcHandlers() {
     return results;
   });
 
-  ipcMain.handle('get-bill-preview', async (event, bill, items, type = 'big') => {
+  ipcMain.handle('get-bill-preview', async (event, bill, items, type = 'big', copiesCount = 2) => {
     const settings = await getSettingsObj();
-    return getBillHtml(bill, items, type, settings);
+    return getBillHtml(bill, items, type, settings, copiesCount);
   });
 
   // Settings Handlers
