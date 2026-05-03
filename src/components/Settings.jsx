@@ -39,6 +39,7 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [previewHtml, setPreviewHtml] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewType, setPreviewType] = useState('transport');
 
   const handlePreview = async (type, copiesCount = 2) => {
     if (!window.electron?.ipcRenderer) return;
@@ -69,6 +70,7 @@ export default function Settings() {
 
     try {
       const html = await window.electron.ipcRenderer.invoke('get-bill-preview', dummyBill, dummyItems, type, copiesCount);
+      setPreviewType(type);
       setPreviewHtml(html);
       setPreviewOpen(true);
     } catch (err) {
@@ -311,6 +313,21 @@ export default function Settings() {
               <h2 className="text-xl font-bold text-gray-800 dark:text-white pb-2">Bill Template Previews</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Preview how your invoices and transport copies will look when printed.</p>
 
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Standard Invoice (A4 Portrait)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+                <div className="border border-gray-200 dark:border-m3-outline rounded-2xl p-6 flex flex-col hover:shadow-md transition-shadow bg-white dark:bg-m3-surface-container">
+                  <div className="bg-purple-50 dark:bg-purple-900/30 p-3.5 rounded-xl w-fit mb-4 text-purple-600 dark:text-purple-400">
+                    <FileText size={24} />
+                  </div>
+                  <h3 className="font-bold text-gray-900 dark:text-white text-lg">Main Invoice</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 mt-2">Standard full-page A4 portrait layout used for all primary billing.</p>
+                  <button onClick={() => handlePreview('big')} className="mt-auto bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-m3-surface-container-highest dark:text-white dark:hover:bg-m3-outline px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                    <Eye size={18} /> Preview Invoice
+                  </button>
+                </div>
+              </div>
+
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Transport Bill (A4 Landscape)</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div className="border border-gray-200 dark:border-m3-outline rounded-2xl p-6 flex flex-col hover:shadow-md transition-shadow bg-white dark:bg-m3-surface-container">
                   <div className="bg-blue-50 dark:bg-blue-900/30 p-3.5 rounded-xl w-fit mb-4 text-blue-600 dark:text-blue-400">
@@ -405,11 +422,14 @@ export default function Settings() {
               </button>
             </div>
             <div className="flex-1 overflow-auto bg-gray-100 p-4 sm:p-8 flex justify-center">
-              {/* iframe scales to fit A4 landscape content roughly */}
+              {/* iframe scales to fit A4 layout roughly */}
               <iframe 
                 srcDoc={previewHtml} 
                 className="bg-white shadow-lg w-full"
-                style={{ aspectRatio: '1.414 / 1', maxWidth: '285mm' }} 
+                style={{ 
+                  aspectRatio: previewType === 'transport' ? '1.414 / 1' : '1 / 1.414', 
+                  maxWidth: previewType === 'transport' ? '285mm' : '210mm' 
+                }} 
                 title="Bill Preview"
               />
             </div>
