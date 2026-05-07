@@ -14,5 +14,8 @@ contextBridge.exposeInMainWorld('electron', {
     getBillByNumber: (num) => ipcRenderer.invoke('get-bill-by-number', num),
     getDashboardStats: () => ipcRenderer.invoke('get-dashboard-stats'),
     getProducts: () => ipcRenderer.invoke('get-products'),
+    getPartyGsts: (partyId) => ipcRenderer.invoke('get-party-gsts', partyId),
+    setActiveGst: (partyId, gstId) => ipcRenderer.invoke('set-active-gst', partyId, gstId),
+    deletePartyGst: (partyId, gstId) => ipcRenderer.invoke('delete-party-gst', partyId, gstId),
   }
 });

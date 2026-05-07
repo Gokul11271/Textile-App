@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Package, Search, ArrowLeft, X } from 'lucide-react';
+import { Plus, Package, Search, ArrowLeft, X, Trash2, CheckCircle2, Circle } from 'lucide-react';
+import { useStore } from '../store';
 
 const Parties = () => {
-  const [parties, setParties] = useState([]);
+  const { parties, refreshParties } = useStore();
   const [customers, setCustomers] = useState([]);
   const [formData, setFormData] = useState({
     id: null,
@@ -19,7 +20,8 @@ const Parties = () => {
     state: '',
     aadhar_number: '',
     pan_number: '',
-    opening_balance: ''
+    opening_balance: '',
+    gst_entries: []
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -27,9 +29,10 @@ const Parties = () => {
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCity, setFilterCity] = useState('');
+  const [gstEntries, setGstEntries] = useState([{ gst_number: '', is_active: true }]);
+  const [gstError, setGstError] = useState('');
 
   useEffect(() => {
-    fetchParties();
     fetchCustomers();
   }, []);
 
@@ -39,16 +42,6 @@ const Parties = () => {
       setCustomers(data || []);
     } catch (err) {
       console.error('Error fetching customers:', err);
-    }
-  };
-
-  const fetchParties = async () => {
-    try {
-      const data = await window.electron.ipcRenderer.invoke('get-parties');
-      setParties(data || []);
-    } catch (err) {
-      console.error('Error fetching parties:', err);
-      setParties([]);
     }
   };
 
@@ -72,10 +65,7 @@ const Parties = () => {
       return;
     }
 
-    if (!formData.gst_number && !formData.aadhar_number && !formData.pan_number) {
-      setError('At least one identification (GST, Aadhaar, or PAN) is required.');
-      return;
-    }
+    // Validation handled during gst_entries processing below
 
     setLoading(true);
     try {
@@ -87,12 +77,23 @@ const Parties = () => {
         await fetchCustomers();
       }
 
-      const partyData = { ...formData, customer_id: currentCustomerId };
+      // Validate gst_entries
+      const validGsts = gstEntries.filter(g => g.gst_number && g.gst_number.trim());
+      if (validGsts.length === 0 && !formData.aadhar_number && !formData.pan_number) {
+        setError('At least one GST number, Aadhaar, or PAN is required.');
+        setLoading(false);
+        return;
+      }
+      // Ensure exactly one is active
+      const hasActive = validGsts.some(g => g.is_active);
+      if (validGsts.length > 0 && !hasActive) validGsts[0].is_active = true;
+      const activeGst = validGsts.find(g => g.is_active);
+      const partyData = { ...formData, customer_id: currentCustomerId, gst_number: activeGst ? activeGst.gst_number : formData.gst_number, gst_entries: validGsts };
       await window.electron.ipcRenderer.invoke('save-party', partyData);
       
       setSuccess('Location saved successfully!');
       resetForm();
-      fetchParties();
+      refreshParties();
       setTimeout(() => setShowForm(false), 1500);
     } catch (err) {
       setError('Error saving location: ' + err.message);
@@ -102,6 +103,8 @@ const Parties = () => {
   };
 
   const resetForm = () => {
+    setGstEntries([{ gst_number: '', is_active: true }]);
+    setGstError('');
     setFormData({
       id: null,
       customer_id: '',
@@ -111,6 +114,7 @@ const Parties = () => {
       name: '',
       address: '',
       gst_number: '',
+      gst_entries: [],
       phone: '',
       email: '',
       city: '',
@@ -121,7 +125,7 @@ const Parties = () => {
     });
   };
 
-  const handleEdit = (party) => {
+  const handleEdit = async (party) => {
     setFormData({
       id: party.id,
       customer_id: party.customer_id,
@@ -131,6 +135,7 @@ const Parties = () => {
       name: party.name,
       address: party.address,
       gst_number: party.gst_number,
+      gst_entries: [],
       phone: party.phone || '',
       email: party.email || '',
       city: party.city || '',
@@ -139,6 +144,17 @@ const Parties = () => {
       pan_number: party.pan_number || '',
       opening_balance: party.opening_balance || ''
     });
+    // Load all GST entries for this party
+    try {
+      const gsts = await window.electron.db.getPartyGsts(party.id);
+      if (gsts && gsts.length > 0) {
+        setGstEntries(gsts.map(g => ({ id: g.id, gst_number: g.gst_number, is_active: g.is_active === 1 })));
+      } else {
+        setGstEntries(party.gst_number ? [{ gst_number: party.gst_number, is_active: true }] : [{ gst_number: '', is_active: true }]);
+      }
+    } catch (e) {
+      setGstEntries(party.gst_number ? [{ gst_number: party.gst_number, is_active: true }] : [{ gst_number: '', is_active: true }]);
+    }
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -295,11 +311,39 @@ const Parties = () => {
                 ></textarea>
               </div>
 
-              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className={labelBase}>GST NO</label>
-                  <input type="text" name="gst_number" value={formData.gst_number} onChange={handleInputChange} className={`${inputBase} font-mono`} placeholder="Ex: 33AAAAA0000A1Z5" />
+              {/* Multi-GST Management */}
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between mb-2">
+                  <label className={labelBase} style={{marginBottom:0}}>GST Numbers <span className="text-xs text-m3-on-surface-variant ml-1">(● = active for billing)</span></label>
+                  <button type="button" onClick={() => setGstEntries(prev => [...prev, { gst_number: '', is_active: false }])} className="flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-m3-primary text-m3-on-primary hover:shadow-m3-1 transition-all">
+                    <Plus size={13} /> Add GST
+                  </button>
                 </div>
+                <div className="space-y-2">
+                  {gstEntries.map((entry, idx) => (
+                    <div key={idx} className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${entry.is_active ? 'border-m3-primary bg-m3-primary/5' : 'border-m3-outline-variant'}`}>
+                      <button type="button" title={entry.is_active ? 'Active GST for billing' : 'Click to set as Active'} onClick={() => setGstEntries(prev => prev.map((g, i) => ({ ...g, is_active: i === idx })))} className="flex-shrink-0 transition-colors">
+                        {entry.is_active ? <CheckCircle2 size={18} className="text-m3-primary" /> : <Circle size={18} className="text-m3-on-surface-variant/40 hover:text-m3-primary" />}
+                      </button>
+                      <input
+                        type="text"
+                        value={entry.gst_number}
+                        onChange={e => setGstEntries(prev => prev.map((g, i) => i === idx ? { ...g, gst_number: e.target.value.toUpperCase() } : g))}
+                        className="flex-1 rounded-md px-3 py-2 text-sm bg-m3-surface-container-highest border border-m3-outline-variant text-m3-on-surface placeholder:text-m3-on-surface-variant/40 focus:border-m3-primary outline-none transition-all font-mono"
+                        placeholder={`GST #${idx + 1} — e.g. 33AAAA0000A1Z5`}
+                      />
+                      {entry.is_active && <span className="text-xs text-m3-primary font-semibold px-2 py-0.5 bg-m3-primary/10 rounded-full whitespace-nowrap">Active</span>}
+                      {gstEntries.length > 1 && (
+                        <button type="button" onClick={() => setGstEntries(prev => { const next = prev.filter((_, i) => i !== idx); if (!next.some(g => g.is_active) && next.length > 0) next[0].is_active = true; return next; })} className="flex-shrink-0 text-m3-on-surface-variant/40 hover:text-m3-error transition-colors p-1 rounded-full hover:bg-m3-error/10" title="Remove GST">
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className={labelBase}>Aadhaar Number</label>
                   <input type="text" name="aadhar_number" value={formData.aadhar_number} onChange={handleInputChange} className={`${inputBase} font-mono`} placeholder="12 digit number" />
@@ -444,11 +488,12 @@ const Parties = () => {
                       <td className="px-6 py-5">
                         <div className="flex flex-col gap-1.5">
                           {party.gst_number && (
-                            <div className="flex items-center gap-2">
-                              <span className="m3-label-small text-m3-on-surface-variant w-8">GST:</span>
-                              <span className="font-mono m3-body-small px-2 py-0.5 rounded-md bg-m3-surface-container-high text-m3-on-surface-variant border border-m3-outline-variant/50">
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <span className="m3-label-small text-m3-on-surface-variant">GST:</span>
+                              <span className="font-mono m3-body-small px-2 py-0.5 rounded-md bg-m3-primary/10 text-m3-primary border border-m3-primary/30 font-semibold" title="Active GST">
                                 {party.gst_number}
                               </span>
+                              <span className="text-xs text-m3-on-surface-variant/50 italic">(active)</span>
                             </div>
                           )}
                           {party.aadhar_number && (

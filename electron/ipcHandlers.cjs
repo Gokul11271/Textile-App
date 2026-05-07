@@ -2,6 +2,7 @@ const { ipcMain, BrowserWindow, shell, app } = require('electron');
 const { dbRun, dbAll, dbGet, dbExec } = require('./database.cjs');
 const fs = require('fs');
 const path = require('path');
+const { validatePayload, CustomerSchema, PartySchema, SettingsSchema, ProductSchema, ipcResponse } = require('./ipcContracts.cjs');
 
 function setupIpcHandlers() {
   const printService = require('./services/printService.cjs');
@@ -82,17 +83,20 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('save-settings', async (event, newSettings) => {
+    const { isValid, data, error } = validatePayload(SettingsSchema, newSettings);
+    if (!isValid) return ipcResponse(null, error);
+
     await dbRun('BEGIN TRANSACTION');
     try {
-      for (const [key, value] of Object.entries(newSettings)) {
+      for (const [key, value] of Object.entries(data)) {
         const valStr = typeof value === 'object' ? JSON.stringify(value) : (value !== null && value !== undefined ? value.toString() : '');
         await dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, valStr]);
       }
       await dbRun('COMMIT');
-      return { success: true };
+      return ipcResponse(true);
     } catch (e) {
       await dbRun('ROLLBACK');
-      return { success: false, error: e.message };
+      return ipcResponse(null, e);
     }
   });
 
@@ -154,9 +158,17 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('save-customer', async (event, customer) => {
+    const { isValid, data, error } = validatePayload(CustomerSchema, customer);
+    if (!isValid) {
+      // The frontend currently expects an object with lastID for save-customer
+      // So we throw to let the IPC rejection happen, or return error format.
+      // Parties.jsx does: const result = await window.electron.ipcRenderer.invoke('save-customer', ...)
+      // We will throw error so frontend catches it.
+      throw new Error(error);
+    }
     return await dbRun(
       'INSERT OR REPLACE INTO customers (id, name) VALUES (?, ?)',
-      [customer.id || null, customer.name]
+      [data.id || null, data.name]
     );
   });
 
@@ -171,10 +183,129 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('save-party', async (event, party) => {
-    return await dbRun(
-      'INSERT OR REPLACE INTO parties (id, customer_id, short_name, address, gst_number, phone, email, city, state, aadhar_number, pan_number, opening_balance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [party.id || null, party.customer_id, party.short_name, party.address, party.gst_number, party.phone, party.email, party.city, party.state, party.aadhar_number, party.pan_number, party.opening_balance]
+    const { isValid, data, error } = validatePayload(PartySchema, party);
+    if (!isValid) throw new Error(error);
+
+    // Determine active GST from gst_entries if provided
+    const activeEntry = (data.gst_entries || []).find(e => e.is_active);
+    const activeGst = activeEntry ? activeEntry.gst_number : (data.gst_number || null);
+
+    await dbRun('BEGIN TRANSACTION');
+    try {
+      const result = await dbRun(
+        'INSERT OR REPLACE INTO parties (id, customer_id, short_name, address, gst_number, phone, email, city, state, aadhar_number, pan_number, opening_balance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [data.id || null, data.customer_id, data.short_name, data.address, activeGst, data.phone, data.email, data.city, data.state, data.aadhar_number, data.pan_number, data.opening_balance]
+      );
+      const partyId = data.id || result.lastID;
+      
+      if (!partyId) throw new Error('Failed to resolve Party ID after save.');
+
+      // Sync gst_entries into party_gst table
+      if (data.gst_entries && data.gst_entries.length > 0) {
+        // Get existing GSTs to detect what to delete
+        const existingGsts = await dbAll('SELECT gst_number FROM party_gst WHERE party_id = ?', [partyId]) || [];
+        const existingSet = new Set(existingGsts.map(r => r.gst_number));
+        const newSet = new Set(data.gst_entries.map(e => e.gst_number));
+
+        // Deactivate all first, then set active on the chosen one
+        await dbRun('UPDATE party_gst SET is_active = 0 WHERE party_id = ?', [partyId]);
+
+        for (const entry of data.gst_entries) {
+          if (existingSet.has(entry.gst_number)) {
+            // Update is_active
+            await dbRun(
+              'UPDATE party_gst SET is_active = ? WHERE party_id = ? AND gst_number = ?',
+              [entry.is_active ? 1 : 0, partyId, entry.gst_number]
+            );
+          } else {
+            // Insert new
+            await dbRun(
+              'INSERT OR IGNORE INTO party_gst (party_id, gst_number, is_active) VALUES (?, ?, ?)',
+              [partyId, entry.gst_number, entry.is_active ? 1 : 0]
+            );
+          }
+        }
+
+        // Delete GSTs removed by user (only if not used in any bill)
+        for (const oldGst of existingSet) {
+          if (!newSet.has(oldGst)) {
+            const usedInBill = await dbGet(
+              'SELECT id FROM bills WHERE party_id = ? AND party_gst = ? LIMIT 1',
+              [partyId, oldGst]
+            );
+            if (!usedInBill) {
+              await dbRun('DELETE FROM party_gst WHERE party_id = ? AND gst_number = ?', [partyId, oldGst]);
+            }
+          }
+        }
+      } else if (activeGst) {
+        // Fallback: no gst_entries provided, just ensure the active GST exists
+        await dbRun('UPDATE party_gst SET is_active = 0 WHERE party_id = ?', [partyId]);
+        await dbRun(
+          'INSERT OR IGNORE INTO party_gst (party_id, gst_number, is_active) VALUES (?, ?, 1)',
+          [partyId, activeGst]
+        );
+        await dbRun(
+          'UPDATE party_gst SET is_active = 1 WHERE party_id = ? AND gst_number = ?',
+          [partyId, activeGst]
+        );
+      }
+
+      await dbRun('COMMIT');
+      return { lastID: partyId };
+    } catch (e) {
+      await dbRun('ROLLBACK');
+      console.error('Error in save-party IPC handler:', e);
+      throw e;
+    }
+  });
+
+  // Get all GST numbers for a specific party
+  ipcMain.handle('get-party-gsts', async (event, partyId) => {
+    return await dbAll(
+      'SELECT * FROM party_gst WHERE party_id = ? ORDER BY is_active DESC, created_at ASC',
+      [partyId]
     );
+  });
+
+  // Set a specific GST as active for a party (used from Parties page)
+  ipcMain.handle('set-active-gst', async (event, partyId, gstId) => {
+    await dbRun('BEGIN TRANSACTION');
+    try {
+      await dbRun('UPDATE party_gst SET is_active = 0 WHERE party_id = ?', [partyId]);
+      const row = await dbGet('SELECT gst_number FROM party_gst WHERE id = ? AND party_id = ?', [gstId, partyId]);
+      if (!row) throw new Error('GST not found for this party');
+      await dbRun('UPDATE party_gst SET is_active = 1 WHERE id = ?', [gstId]);
+      await dbRun('UPDATE parties SET gst_number = ? WHERE id = ?', [row.gst_number, partyId]);
+      await dbRun('COMMIT');
+      return { success: true, activeGst: row.gst_number };
+    } catch (e) {
+      await dbRun('ROLLBACK');
+      return { success: false, error: e.message };
+    }
+  });
+
+  // Delete a GST number (blocked if used in a bill)
+  ipcMain.handle('delete-party-gst', async (event, partyId, gstId) => {
+    const row = await dbGet('SELECT gst_number, is_active FROM party_gst WHERE id = ? AND party_id = ?', [gstId, partyId]);
+    if (!row) return { success: false, error: 'GST not found' };
+    const usedInBill = await dbGet(
+      'SELECT id FROM bills WHERE party_id = ? AND party_gst = ? LIMIT 1',
+      [partyId, row.gst_number]
+    );
+    if (usedInBill) return { success: false, error: `GST "${row.gst_number}" is used in a bill and cannot be deleted.` };
+    await dbRun('DELETE FROM party_gst WHERE id = ?', [gstId]);
+    // If deleted was active, pick the first remaining as new active
+    if (row.is_active) {
+      const next = await dbGet('SELECT id, gst_number FROM party_gst WHERE party_id = ? LIMIT 1', [partyId]);
+      if (next) {
+        await dbRun('UPDATE party_gst SET is_active = 1 WHERE id = ?', [next.id]);
+        await dbRun('UPDATE parties SET gst_number = ? WHERE id = ?', [next.gst_number, partyId]);
+      } else {
+        await dbRun('UPDATE parties SET gst_number = NULL WHERE id = ?', [partyId]);
+      }
+    }
+    return { success: true };
   });
 
   // Agents
@@ -191,8 +322,17 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('get-products', async () => {
-    const rows = await dbAll('SELECT DISTINCT product_name FROM bill_items WHERE product_name IS NOT NULL AND product_name != ""');
-    return rows.map(r => r.product_name);
+    return await require('./database.cjs').getProducts();
+  });
+
+  ipcMain.handle('save-product', async (event, product) => {
+    const { isValid, data, error } = validatePayload(ProductSchema, product);
+    if (!isValid) throw new Error(error);
+    return await require('./database.cjs').saveProduct(data);
+  });
+
+  ipcMain.handle('delete-product', async (event, id) => {
+    return await require('./database.cjs').deleteProduct(id);
   });
 
   ipcMain.handle('get-bill-by-number', async (event, billNumber) => {

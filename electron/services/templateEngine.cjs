@@ -1,5 +1,11 @@
 const fs = require('fs');
 const path = require('path');
+const Handlebars = require('handlebars');
+
+// Register helpers
+Handlebars.registerHelper('eq', function (a, b) {
+  return a === b;
+});
 
 // ─── Template Cache ────────────────────────────────────────────────────────────
 // Each template is read from disk only once per process lifetime.
@@ -17,17 +23,16 @@ const clearCache = () => { Object.keys(_cache).forEach(k => delete _cache[k]); }
 const renderTemplate = (templateName, vars) => {
   if (!_cache[templateName]) {
     const templatePath = path.join(__dirname, '../templates', templateName);
-    _cache[templateName] = fs.readFileSync(templatePath, 'utf8');
+    const templateSource = fs.readFileSync(templatePath, 'utf8');
+    _cache[templateName] = Handlebars.compile(templateSource);
   }
 
-  let html = _cache[templateName];
-
-  for (const [key, value] of Object.entries(vars)) {
-    // Replace ALL occurrences of {{KEY}}
-    html = html.split(`{{${key}}}`).join(value !== null && value !== undefined ? String(value) : '');
-  }
-
-  return html;
+  // vars contains our data, plus we can pass {{TOKEN}} syntax exactly as is
+  // because Handlebars natively uses {{TOKEN}} syntax.
+  // Note: Handlebars auto-escapes by default. For raw HTML strings (like ITEMS_ROWS), 
+  // the templates must use {{{TOKEN}}} instead of {{TOKEN}}.
+  const compiledTemplate = _cache[templateName];
+  return compiledTemplate(vars);
 };
 
 module.exports = { renderTemplate, clearCache };

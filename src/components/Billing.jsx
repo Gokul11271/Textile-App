@@ -1,6 +1,7 @@
 import { useAlert } from './AlertProvider';
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, Trash2, Save, Printer, FileText, Search, User, Package, ChevronRight, ChevronLeft } from 'lucide-react'
+import { useStore } from '../store'
 
 export function Billing() {
   const { showAlert } = useAlert();
@@ -48,9 +49,7 @@ export function Billing() {
   ])
 
   const [stats, setStats] = useState({ totalBills: 0, lastBillNo: 'N/A', totalBales: 0 })
-  const [products, setProducts] = useState([])
-  const [parties, setParties] = useState([])
-  const [agents, setAgents] = useState([])
+  const { parties, agents, products, settings } = useStore()
   const [partyIndex, setPartyIndex] = useState(-1)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -70,17 +69,7 @@ export function Billing() {
     const loadInitialData = async () => {
       if (!window.electron || !window.electron.db) return;
       try {
-        const [partiesData, agentsData, productsData, settings, lastNo] = await Promise.all([
-          window.electron.db.getParties(),
-          window.electron.db.getAgents(),
-          window.electron.db.getProducts ? window.electron.db.getProducts() : Promise.resolve([]),
-          window.electron.ipcRenderer.invoke('get-settings'),
-          window.electron.db.getLastBillNumber()
-        ]);
-        
-        setParties(partiesData || []);
-        setAgents(agentsData || []);
-        setProducts(productsData || []);
+        const lastNo = await window.electron.db.getLastBillNumber()
         
         setBillData(prev => ({
           ...prev,
@@ -94,7 +83,7 @@ export function Billing() {
       }
     };
     loadInitialData();
-  }, [loadStats])
+  }, [loadStats, settings])
 
   const calculateTotals = useCallback((currentItems, currentBillData) => {
     const subtotal = currentItems.reduce((sum, item) => sum + item.amount, 0)
@@ -136,8 +125,17 @@ export function Billing() {
   const handleItemChange = (id, field, value) => {
     const newItems = items.map(item => {
       if (item.id === id) {
-        const updatedItem = { ...item, [field]: value }
-        if (field === 'quantity' || field === 'rate') {
+        let updatedItem = { ...item, [field]: value }
+        
+        // Auto-fill rate if product is selected from the managed list
+        if (field === 'productName') {
+          const matchedProduct = products.find(p => p.name === value);
+          if (matchedProduct && matchedProduct.default_rate > 0) {
+            updatedItem.rate = matchedProduct.default_rate;
+          }
+        }
+        
+        if (field === 'quantity' || field === 'rate' || field === 'productName') {
           updatedItem.amount = Number(updatedItem.quantity || 0) * Number(updatedItem.rate || 0)
         }
         if (field === 'baleNumber') {
@@ -205,27 +203,34 @@ export function Billing() {
     }
   }
 
-  const handlePartySelect = (selection) => {
+  const handlePartySelect = async (selection) => {
     const match = selection.match(/\(([^)]+)\)$/)
     const shortName = match ? match[1] : selection
 
     const party = parties.find(p => p.short_name === shortName)
     if (party) {
-      let idNumber = '';
-      let idLabel = 'Identification';
-
-      if (party.gst_number) {
-        idNumber = party.gst_number;
-        idLabel = 'GST Number';
-      } else if (party.pan_number) {
-        idNumber = party.pan_number;
-        idLabel = 'PAN Number';
-      } else if (party.aadhar_number) {
-        idNumber = party.aadhar_number;
-        idLabel = 'Aadhaar Number';
+      const isInterState = !(party.state && party.state.toLowerCase().includes('tamil nadu'));
+      
+      // Fetch all GSTs for this party
+      let partyGsts = [];
+      try {
+        partyGsts = await window.electron.db.getPartyGsts(party.id);
+      } catch (e) {
+        console.error('Error fetching party GSTs:', e);
       }
 
-      const isInterState = !(party.state && party.state.toLowerCase().includes('tamil nadu'));
+      let idNumber = party.gst_number || '';
+      let idLabel = 'GST Number';
+
+      if (!idNumber) {
+        if (party.pan_number) {
+          idNumber = party.pan_number;
+          idLabel = 'PAN Number';
+        } else if (party.aadhar_number) {
+          idNumber = party.aadhar_number;
+          idLabel = 'Aadhaar Number';
+        }
+      }
 
       setBillData(prev => ({
         ...prev,
@@ -235,10 +240,12 @@ export function Billing() {
         partyAddress: party.address,
         partyGst: idNumber,
         partyIdLabel: idLabel,
-        isInterState
+        isInterState,
+        // New field to store available GSTs for this session
+        availableGsts: partyGsts || []
       }))
     } else {
-      setBillData(prev => ({ ...prev, partyName: selection, partyShortName: selection }))
+      setBillData(prev => ({ ...prev, partyName: selection, partyShortName: selection, availableGsts: [] }))
     }
   }
 
@@ -425,10 +432,8 @@ export function Billing() {
         }
 
         loadStats(); // Refresh stats after save
-        // Refresh products so new items appear in recommendations for upcoming bills
-        if (window.electron.db.getProducts) {
-          window.electron.db.getProducts().then(p => setProducts(p || []));
-        }
+        // Refresh products in global store so new items appear in recommendations
+        useStore.getState().refreshProducts()
         if (!silent) showAlert('✅ Bill ' + billData.billNumber + ' saved successfully!' + (pdfPath ? '\n📁 Saved to: ' + pdfPath : ''), 'success');
         return true;
       } else {
@@ -526,7 +531,7 @@ export function Billing() {
   return (
     <div className="h-[calc(100vh-5rem)] flex flex-col overflow-hidden animate-in fade-in duration-500 font-sans">
       <datalist id="products-list">
-        {products.map((p, i) => <option key={i} value={p} />)}
+        {products.map((p, i) => <option key={i} value={p.name || p} />)}
       </datalist>
       {/* Header Actions */}
       <div className="flex justify-between items-center mb-4 flex-shrink-0">
@@ -731,13 +736,32 @@ export function Billing() {
                 </div>
                 <div>
                   <label className={labelBase}>{billData.partyIdLabel || 'Identification'}</label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={billData.partyGst}
-                    className={`${inputBase} cursor-not-allowed opacity-70 font-mono`}
-                    placeholder="Auto-filled"
-                  />
+                  {billData.availableGsts && billData.availableGsts.length > 1 ? (
+                    <div className="relative">
+                      <select
+                        value={billData.partyGst}
+                        onChange={e => setBillData({ ...billData, partyGst: e.target.value })}
+                        className={`${inputBase} appearance-none pr-10 font-mono`}
+                      >
+                        {billData.availableGsts.map(g => (
+                          <option key={g.id} value={g.gst_number}>
+                            {g.gst_number} {g.is_active ? '(Active)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-m3-on-surface-variant">
+                        <ChevronRight size={16} className="rotate-90" />
+                      </div>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      readOnly
+                      value={billData.partyGst}
+                      className={`${inputBase} cursor-not-allowed opacity-70 font-mono`}
+                      placeholder="Auto-filled"
+                    />
+                  )}
                 </div>
               </div>
               <div>

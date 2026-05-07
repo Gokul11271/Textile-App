@@ -1,10 +1,13 @@
 import { useAlert } from './AlertProvider';
 import React, { useState, useEffect } from 'react';
 import { Download, Upload, RotateCcw, Save, FileText, Eye, X } from 'lucide-react';
+import { useStore } from '../store';
 
 export default function Settings() {
   const { showAlert } = useAlert();
+  const { settings: globalSettings, refreshSettings, products, refreshProducts } = useStore();
   const [activeTab, setActiveTab] = useState('company');
+  const [productForm, setProductForm] = useState({ id: null, name: '', default_rate: 0 });
   const [settings, setSettings] = useState({
     activeCompany: 'company1',
     company1: {
@@ -40,6 +43,12 @@ export default function Settings() {
   const [previewHtml, setPreviewHtml] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewType, setPreviewType] = useState('transport');
+
+  useEffect(() => {
+    if (globalSettings && Object.keys(globalSettings).length > 0) {
+      setSettings(prev => ({ ...prev, ...globalSettings }));
+    }
+  }, [globalSettings]);
 
   const handlePreview = async (type, copiesCount = 2) => {
     if (!window.electron?.ipcRenderer) return;
@@ -78,23 +87,11 @@ export default function Settings() {
     }
   };
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
-    if (window.electron && window.electron.ipcRenderer) {
-      const dbSettings = await window.electron.ipcRenderer.invoke('get-settings');
-      if (dbSettings && Object.keys(dbSettings).length > 0) {
-        setSettings(prev => ({ ...prev, ...dbSettings }));
-      }
-    }
-  };
-
   const handleSave = async () => {
     setSaving(true);
     if (window.electron && window.electron.ipcRenderer) {
       await window.electron.ipcRenderer.invoke('save-settings', settings);
+      await refreshSettings();
       showAlert('Settings saved successfully!', 'success');
     }
     setSaving(false);
@@ -151,6 +148,34 @@ export default function Settings() {
     }
   };
 
+  const handleSaveProduct = async (e) => {
+    e.preventDefault();
+    if (!productForm.name) {
+      showAlert('Product Name is required', 'error');
+      return;
+    }
+    try {
+      await window.electron.ipcRenderer.invoke('save-product', productForm);
+      await refreshProducts();
+      setProductForm({ id: null, name: '', default_rate: 0 });
+      showAlert('Product saved successfully!', 'success');
+    } catch (err) {
+      showAlert('Failed to save product: ' + err.message, 'error');
+    }
+  };
+
+  const handleDeleteProduct = async (id) => {
+    if (window.confirm('Are you sure you want to delete this product?')) {
+      try {
+        await window.electron.ipcRenderer.invoke('delete-product', id);
+        await refreshProducts();
+        showAlert('Product deleted successfully!', 'success');
+      } catch (err) {
+        showAlert('Failed to delete product: ' + err.message, 'error');
+      }
+    }
+  };
+
   const currentCompany = settings[settings.activeCompany] || {};
 
   return (
@@ -170,9 +195,10 @@ export default function Settings() {
           <div className="bg-white dark:bg-m3-surface-container rounded-2xl shadow-sm border border-gray-100 dark:border-m3-outline-variant overflow-hidden flex flex-col">
             <button onClick={() => setActiveTab('company')} className={`p-4 text-left font-medium transition-colors ${activeTab === 'company' ? 'bg-blue-50/80 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-l-4 border-blue-600' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-m3-surface-container-highest border-l-4 border-transparent'}`}>Company Profile</button>
             <button onClick={() => setActiveTab('preferences')} className={`p-4 text-left font-medium transition-colors ${activeTab === 'preferences' ? 'bg-blue-50/80 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-l-4 border-blue-600' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-m3-surface-container-highest border-l-4 border-transparent'}`}>Invoice Preferences</button>
+            <button onClick={() => setActiveTab('products')} className={`p-4 text-left font-medium transition-colors border-t border-gray-100 dark:border-m3-outline-variant ${activeTab === 'products' ? 'bg-blue-50/80 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-l-4 border-blue-600' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-m3-surface-container-highest border-l-4 border-transparent'}`}>Products Management</button>
             <button onClick={() => setActiveTab('templates')} className={`p-4 text-left font-medium transition-colors border-t border-gray-100 dark:border-m3-outline-variant ${activeTab === 'templates' ? 'bg-blue-50/80 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-l-4 border-blue-600' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-m3-surface-container-highest border-l-4 border-transparent'}`}>Template Previews</button>
-            {/* Data Management tab is hidden per user request, but code remains */}
-            {/* <button onClick={() => setActiveTab('data')} className={`p-4 text-left font-medium transition-colors border-t border-gray-100 dark:border-m3-outline-variant ${activeTab === 'data' ? 'bg-blue-50/80 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-l-4 border-blue-600' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-m3-surface-container-highest border-l-4 border-transparent'}`}>Data & Backup</button> */}
+            {/* Data Management tab */}
+            <button onClick={() => setActiveTab('data')} className={`p-4 text-left font-medium transition-colors border-t border-gray-100 dark:border-m3-outline-variant ${activeTab === 'data' ? 'bg-blue-50/80 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-l-4 border-blue-600' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-m3-surface-container-highest border-l-4 border-transparent'}`}>Data & Backup</button>
           </div>
         </div>
 
@@ -303,6 +329,63 @@ export default function Settings() {
                     <input type="checkbox" checked={settings.showBankOnTransport} onChange={e => setSettings({...settings, showBankOnTransport: e.target.checked})} className="sr-only peer" />
                     <div className="w-14 h-7 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
                   </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'products' && (
+            <div className="space-y-8 animate-in fade-in duration-300">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-white pb-2 border-b border-gray-100 dark:border-m3-outline">Products Management</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Manage standardized product names and default rates. These will appear in the autocomplete when billing.</p>
+
+              <form onSubmit={handleSaveProduct} className="bg-gray-50 dark:bg-m3-surface-container-highest p-5 rounded-xl border border-gray-100 dark:border-m3-outline flex flex-col md:flex-row gap-4 items-end shadow-sm">
+                <div className="flex-1 w-full">
+                  <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Product Name</label>
+                  <input type="text" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} className="w-full p-3 bg-white dark:bg-m3-surface border border-gray-200 dark:border-m3-outline rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-800 dark:text-white font-medium" placeholder="Ex: Cotton Yarn 40s" required />
+                </div>
+                <div className="w-full md:w-48">
+                  <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Default Rate (₹)</label>
+                  <input type="number" step="0.01" value={productForm.default_rate} onChange={e => setProductForm({...productForm, default_rate: e.target.value})} className="w-full p-3 bg-white dark:bg-m3-surface border border-gray-200 dark:border-m3-outline rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-800 dark:text-white font-mono" placeholder="0.00" />
+                </div>
+                <button type="submit" className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold transition-colors shadow-sm">
+                  {productForm.id ? 'Update Product' : 'Add Product'}
+                </button>
+                {productForm.id && (
+                  <button type="button" onClick={() => setProductForm({ id: null, name: '', default_rate: 0 })} className="w-full md:w-auto bg-gray-200 hover:bg-gray-300 dark:bg-m3-surface-container dark:hover:bg-m3-outline text-gray-700 dark:text-gray-200 px-4 py-3 rounded-lg font-bold transition-colors">
+                    Cancel
+                  </button>
+                )}
+              </form>
+
+              <div className="border border-gray-200 dark:border-m3-outline rounded-xl overflow-hidden shadow-sm">
+                <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                  <table className="w-full text-left bg-white dark:bg-m3-surface">
+                    <thead className="bg-gray-50 dark:bg-m3-surface-container border-b border-gray-200 dark:border-m3-outline sticky top-0">
+                      <tr>
+                        <th className="px-5 py-3 text-sm font-bold text-gray-600 dark:text-gray-300">Product Name</th>
+                        <th className="px-5 py-3 text-sm font-bold text-gray-600 dark:text-gray-300 w-32">Default Rate</th>
+                        <th className="px-5 py-3 text-sm font-bold text-gray-600 dark:text-gray-300 w-24 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-m3-outline-variant">
+                      {products.map((p) => (
+                        <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-m3-surface-container-highest transition-colors">
+                          <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-200">{p.name}</td>
+                          <td className="px-5 py-3 font-mono text-gray-600 dark:text-gray-400">₹ {Number(p.default_rate || 0).toFixed(2)}</td>
+                          <td className="px-5 py-3 text-right">
+                            <button onClick={() => setProductForm(p)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium mr-3 transition-colors">Edit</button>
+                            <button onClick={() => handleDeleteProduct(p.id)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium transition-colors">Delete</button>
+                          </td>
+                        </tr>
+                      ))}
+                      {products.length === 0 && (
+                        <tr>
+                          <td colSpan="3" className="px-5 py-8 text-center text-gray-500 dark:text-gray-400">No products found. Start adding them above.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>

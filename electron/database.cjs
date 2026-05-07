@@ -192,6 +192,13 @@ async function initDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      default_rate REAL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS bills (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       bill_number TEXT NOT NULL UNIQUE,
@@ -253,6 +260,28 @@ async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON system_logs(timestamp);
   `);
 
+  // Phase 6: party_gst table — one row per GST number per party
+  await dbExec(`
+    CREATE TABLE IF NOT EXISTS party_gst (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      party_id INTEGER NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
+      gst_number TEXT NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(party_id, gst_number)
+    );
+    CREATE INDEX IF NOT EXISTS idx_party_gst_party_id ON party_gst(party_id);
+  `);
+
+  // Add party_gst snapshot column to bills (frozen at creation time)
+  const billsInfo = await dbAll('PRAGMA table_info(bills)');
+  if (!billsInfo.some(c => c.name === 'party_gst')) {
+    try { await dbExec('ALTER TABLE bills ADD COLUMN party_gst TEXT;'); } catch (e) {}
+  }
+
+  // Seed products from existing bill_items
+  await dbRun(`INSERT OR IGNORE INTO products (name) SELECT DISTINCT product_name FROM bill_items`);
+
   const columns = ['phone', 'email', 'city', 'state', 'aadhar_number', 'pan_number', 'opening_balance', 'customer_id'];
   for (const col of columns) {
     try {
@@ -272,6 +301,27 @@ async function initDatabase() {
       }
     } catch (e) {}
   }
+
+  // Phase 6: Migrate existing parties.gst_number → party_gst table (one-time)
+  try {
+    const partyGstCount = await dbGet('SELECT COUNT(*) as cnt FROM party_gst');
+    if (!partyGstCount || partyGstCount.cnt === 0) {
+      const partiesWithGst = await dbAll(
+        'SELECT id, gst_number FROM parties WHERE gst_number IS NOT NULL AND gst_number != ""'
+      );
+      for (const p of partiesWithGst) {
+        try {
+          await dbRun(
+            'INSERT OR IGNORE INTO party_gst (party_id, gst_number, is_active) VALUES (?, ?, 1)',
+            [p.id, p.gst_number]
+          );
+        } catch (e) {}
+      }
+      console.log('Migrated existing GST numbers into party_gst table.');
+    }
+  } catch (e) { console.error('GST migration error:', e); }
+
+  // Migrate existing gst_number — done above
 
   // Phase 4: Seed counter from existing MAX bill number (safe migration)
   await initBillCounter();
@@ -339,6 +389,25 @@ async function pruneLogs(maxLogs = 1000) {
   }
 }
 
+const getAgents = async () => {
+  return await dbAll('SELECT * FROM agents ORDER BY name ASC');
+};
+
+const getProducts = async () => {
+  return await dbAll('SELECT * FROM products ORDER BY name ASC');
+};
+
+const saveProduct = async (product) => {
+  return await dbRun(
+    'INSERT OR REPLACE INTO products (id, name, default_rate) VALUES (?, ?, ?)',
+    [product.id || null, product.name, product.default_rate || 0]
+  );
+};
+
+const deleteProduct = async (id) => {
+  return await dbRun('DELETE FROM products WHERE id = ?', [id]);
+};
+
 module.exports = {
   db,
   dbRun,
@@ -349,4 +418,8 @@ module.exports = {
   initBillCounter,
   incrementCounter,
   pruneLogs,
+  getAgents,
+  getProducts,
+  saveProduct,
+  deleteProduct
 };
