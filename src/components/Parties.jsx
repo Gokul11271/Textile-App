@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Package, Search, ArrowLeft, X, Trash2, CheckCircle2, Circle } from 'lucide-react';
+import { toast } from 'sonner';
 import { useStore } from '../store';
 
 const Parties = () => {
@@ -56,16 +57,25 @@ const Parties = () => {
     setSuccess('');
 
     if ((formData.isNewCustomer && !formData.newCustomerName) || (!formData.isNewCustomer && !formData.customer_id)) {
-      setError('Please select or enter a Customer name.');
+      const msg = 'Please select or enter a Customer name.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
     if (!formData.short_name || !formData.address) {
-      setError('Short Name and Address are mandatory fields.');
+      const msg = 'Short Name and Address are mandatory fields.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
-    // Validation handled during gst_entries processing below
+    if (!formData.city || !formData.city.trim() || !formData.state || !formData.state.trim()) {
+      const msg = 'City and State are mandatory fields.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -79,8 +89,10 @@ const Parties = () => {
 
       // Validate gst_entries
       const validGsts = gstEntries.filter(g => g.gst_number && g.gst_number.trim());
-      if (validGsts.length === 0 && !formData.aadhar_number && !formData.pan_number) {
-        setError('At least one GST number, Aadhaar, or PAN is required.');
+      if (validGsts.length === 0) {
+        const msg = 'At least one GST number is required.';
+        setError(msg);
+        toast.error(msg);
         setLoading(false);
         return;
       }
