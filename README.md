@@ -40,6 +40,7 @@ A modern, fast, and feature-rich desktop billing application built specifically 
 
 ## 📦 Building/Packaging for Production
 
+To create a standalone setup executable (`.exe` for Windows):
 To create a standalone setup executable (`.exe` for Windows), you can use the provided batch script or use npm directly:
 
 ### Option 1: Using the Batch Script (Recommended for Windows)
@@ -55,6 +56,7 @@ Alternatively, you can build the application manually via the terminal. Run the 
 npm install
 npm run package
 ```
+Output installers are placed in the `release/` directory.
 
 **Where is the output?**
 In either case, the final standalone installer (e.g., `Dhanalakshmi Textiles Billing Setup x.x.x.exe`) will be placed in the `release/` directory.
@@ -229,5 +231,3 @@ Flexible Key-Value store for company profiles and UI preferences.
 ---
 
 ## 👥 Authors
-
-Maintained by the IT infrastructure team for Dhanalakshmi Textiles.
