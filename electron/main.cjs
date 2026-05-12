@@ -24,12 +24,15 @@ async function initializeApp() {
   }
 }
 
-initializeApp();
+// initializeApp(); // Moved inside app.whenReady for better control
 
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    show: false, // Don't show the window until it's ready
+    backgroundColor: '#ffffff', // Set a background color to prevent white flash
+    icon: path.join(__dirname, '../build/icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -37,6 +40,12 @@ function createWindow() {
       sandbox: true,
     },
     title: 'Dhanalakshmi Textiles Billing System',
+  });
+
+  // Show the window when it's ready to be displayed
+  win.once('ready-to-show', () => {
+    win.show();
+    win.focus();
   });
 
   // Set CSP header if not in development to address Electron security warnings
@@ -60,7 +69,10 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Start initializing in the background
+  const initPromise = initializeApp();
+  
   createWindow();
 
   app.on('activate', () => {
@@ -68,6 +80,9 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+
+  // Wait for initialization to complete if needed
+  await initPromise;
 });
 
 app.on('window-all-closed', () => {

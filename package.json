@@ -61,7 +61,7 @@
           ]
         }
       ],
-      "icon": "build/icon.png",
+      "icon": "build/icon.ico",
       "verifyUpdateCodeSignature": false
     },
     "nsis": {
@@ -70,10 +70,7 @@
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Dhanalakshmi Textiles Billing",
-      "runAfterFinish": true,
-      "installerIcon": "build/icon.png",
-      "uninstallerIcon": "build/icon.png",
-      "installerHeaderIcon": "build/icon.png"
+      "runAfterFinish": true
     }
   }
 }
