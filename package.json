@@ -17,7 +17,7 @@
   "keywords": [],
   "author": "Dhanalakshmi Textiles",
   "license": "ISC",
-  "description": "Desktop Billing Software for Dhanalakshmi Textiles",
+  "description": "Professional Desktop Billing Software for Dhanalakshmi Textiles",
   "dependencies": {
     "handlebars": "^4.7.9",
     "lucide-react": "^0.479.0",
@@ -43,13 +43,15 @@
   "build": {
     "appId": "com.dhanalakshmi.billing",
     "productName": "Dhanalakshmi Textiles Billing",
-    "files": [
-      "dist/**/*",
-      "electron/**/*"
-    ],
+    "copyright": "Copyright © 2024 Dhanalakshmi Textiles",
     "directories": {
       "output": "release"
     },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
     "win": {
       "target": [
         {
@@ -59,7 +61,19 @@
             "ia32"
           ]
         }
-      ]
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Dhanalakshmi Textiles Billing",
+      "runAfterFinish": true,
+      "installerIcon": "build/icon.png",
+      "uninstallerIcon": "build/icon.png",
+      "installerHeaderIcon": "build/icon.png"
     }
   }
 }

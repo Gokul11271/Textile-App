@@ -8,15 +8,23 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 // Initialize Database and Setup IPC Handlers
 async function initializeApp() {
-  autoBackup();       // Phase 5: best-effort daily backup before any migrations
-  await initDatabase();
-  setupIpcHandlers();
-  info('main', 'Application Started', { version: app.getVersion(), isDev });
+  try {
+    autoBackup();       // Phase 5: best-effort daily backup before any migrations
+    await initDatabase();
+    setupIpcHandlers();
+    info('main', 'Application Started', { version: app.getVersion(), isDev });
+  } catch (err) {
+    const { dialog } = require('electron');
+    console.error('Failed to initialize application:', err);
+    dialog.showErrorBox(
+      'Initialization Error',
+      `The application failed to start correctly:\n\n${err.message}\n\nPlease contact support if this persists.`
+    );
+    app.quit();
+  }
 }
 
-initializeApp().catch(err => {
-  console.error('Failed to initialize application:', err);
-});
+initializeApp();
 
 function createWindow() {
   const win = new BrowserWindow({
