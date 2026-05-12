@@ -6,12 +6,12 @@
           <h1>{{COMPANY_NAME}}</h1>
           <p>{{COMPANY_ADDRESS1}}</p>
           <p>{{COMPANY_ADDRESS2}}</p>
-          <p style="color:#000; margin-top:8px;">GSTIN: {{COMPANY_GST}}</p>
+          <p style="color:#000; margin-top:8px; font-weight: 900; font-size: 10pt;">GSTIN: {{COMPANY_GST}}</p>
         </div>
         <div class="meta-area">
           <div class="invoice-title">
-            <span>#{{BILL_NUMBER}}{{FINANCIAL_YEAR_LABEL}}</span>
-            <span style="font-size: 9pt; opacity: 0.6;">INVOICE</span>
+            <span style="color: #000; font-weight: 900;">#{{BILL_NUMBER}}{{FINANCIAL_YEAR_LABEL}}</span>
+            <span style="font-size: 11pt; font-weight: 900; color: #000;">INVOICE</span>
           </div>
           <div class="meta-row"><span>DATE</span> <span>{{DATE}}</span></div>
           <div class="meta-row"><span>AGENT</span> <span>{{AGENT_TYPE}}</span></div>
@@ -19,7 +19,7 @@
         </div>
       </div>
 
-      {{{BANK_BAR}}}
+
 
       <div class="party-section">
         <div class="section-label">Bill To</div>

@@ -12,8 +12,8 @@ function setupIpcHandlers() {
   const generateBillPdf = printService.generateBillPdf;
   const getBillHtml = printService.getBillHtml;
 
-  ipcMain.handle('generate-pdf', async (event, bill, items, type = 'big') => {
-    return await generateBillPdf(bill, items, type);
+  ipcMain.handle('generate-pdf', async (event, bill, items, type = 'big', copiesCount = 2) => {
+    return await generateBillPdf(bill, items, type, copiesCount);
   });
 
   ipcMain.handle('print-bill', async (event, bill, items, type = 'big', copies = 1) => {

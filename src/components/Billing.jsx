@@ -456,13 +456,13 @@ export function Billing() {
 
       const transportCount = printCopies.transport || 1;
       if (transportCount > 0) {
-        window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'transport').catch(console.error);
+        window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'transport', transportCount).catch(console.error);
         window.electron.ipcRenderer.invoke('print-bill', billData, items, 'transport', transportCount).catch(console.error);
       }
 
       const bigCount = printCopies.big || 1;
       if (bigCount > 0) {
-        window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big').catch(console.error);
+        window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big', bigCount).catch(console.error);
         window.electron.ipcRenderer.invoke('print-bill', billData, items, 'big', bigCount).catch(console.error);
       }
 
@@ -486,7 +486,7 @@ export function Billing() {
 
       // Fire and forget printing/generation so user doesn't wait
       if (count > 0) {
-        window.electron.ipcRenderer.invoke('generate-pdf', billData, items, type).catch(console.error);
+        window.electron.ipcRenderer.invoke('generate-pdf', billData, items, type, count).catch(console.error);
         window.electron.ipcRenderer.invoke('print-bill', billData, items, type, count).catch(console.error);
       }
 
@@ -509,15 +509,11 @@ export function Billing() {
 
     // Generate big bill PDF
     const bigCount = printCopies.big || 1;
-    for (let i = 0; i < bigCount; i++) {
-      window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big').catch(console.error);
-    }
+    window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big', bigCount).catch(console.error);
 
     // Also generate transport copy PDF
     const transportCount = printCopies.transport || 1;
-    for (let i = 0; i < transportCount; i++) {
-      window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'transport').catch(console.error);
-    }
+    window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'transport', transportCount).catch(console.error);
 
     window.electron.db.getLastBillNumber().then(lastNo => {
       const nextNo = lastNo ? (parseInt(lastNo) + 1).toString() : '1';

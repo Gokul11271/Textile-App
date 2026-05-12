@@ -71,14 +71,14 @@
       .section-label { font-size: 7.5pt; font-weight: 900; color: #000; text-transform: uppercase; margin-bottom: 4px; }
       .party-name { font-size: 12pt; font-weight: 900; margin-bottom: 4px; word-break: break-word; white-space: normal; }
       .party-address { font-size: 9pt; font-weight: bold; word-break: break-word; white-space: normal; flex-grow: 1; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; }
-      .party-gst { margin-top: 6px; font-size: 9pt; font-weight: bold; }
+      .party-gst { margin-top: 6px; font-size: 10pt; font-weight: 900; }
       .highlighted { background: none; color: #000; border: 1pt solid #000; padding: 2px 4px; }
       .table-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
       table { width: 100%; border-collapse: collapse; table-layout: fixed; }
       th { background: none; color: #000; font-size: 8.5pt; padding: 10px 12px; text-align: center; border-bottom: 1.5pt solid #000; font-weight: 900; }
       tbody tr { height: 32px; }
-      td { padding: 10px 12px; border-bottom: 0.5pt solid #444; font-size: 9.5pt; font-weight: bold; text-align: center; white-space: normal; word-break: break-word; }
-      .numeric-cell { white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
+      td { padding: 10px 12px; border-bottom: 0.5pt solid #444; font-size: 9.5pt; font-weight: bold; text-align: center; white-space: normal; word-break: break-word; color: #000; }
+      .numeric-cell { white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; color: #000 !important; }
       td:not(:last-child), th:not(:last-child) { border-right: 1.5pt solid #000; }
       .text-right { text-align: right; }
       .text-center { text-align: center; }
@@ -89,8 +89,8 @@
       .calc-row { display: grid; grid-template-columns: 1fr 140px; border-bottom: 1pt solid #000; }
       .calc-row:last-child { border-bottom: none; }
       .calc-label { padding: 10px 15px; font-size: 9pt; font-weight: 900; border-right: 1.5pt solid #000; background: none; display: flex; align-items: center; justify-content: center; text-align: center; }
-      .calc-value { padding: 10px 15px; font-size: 10pt; font-weight: 900; display: flex; justify-content: flex-end; align-items: center; text-align: right; overflow: hidden; }
-      .amount-box { display: flex; justify-content: flex-end; align-items: center; gap: 4px; }
+      .calc-value { padding: 10px 15px; font-size: 10pt; font-weight: 900; display: flex; justify-content: flex-end; align-items: center; text-align: right; overflow: hidden; color: #000 !important; }
+      .amount-box { display: flex; justify-content: flex-end; align-items: center; gap: 4px; color: #000 !important; }
       .total-strip { display: grid; grid-template-columns: 1fr 140px; align-items: center; padding: 15px 0 15px 15px; background: none; color: #000; border-top: 2pt solid #000; min-height: 65px; }
       .total-label { font-size: 10.5pt; font-weight: 900; letter-spacing: 1px; }
       .total-amount { padding-right: 15px; padding-left: 10px; display: flex; justify-content: flex-end; align-items: center; }
@@ -112,12 +112,12 @@
           <h1>{{COMPANY_NAME}}</h1>
           <p>{{COMPANY_ADDRESS1}}</p>
           <p>{{COMPANY_ADDRESS2}}</p>
-          <p style="color:#000; margin-top:8px;">GSTIN: {{COMPANY_GST}}</p>
+          <p style="color:#000; margin-top:8px; font-weight: 900; font-size: 10pt;">GSTIN: {{COMPANY_GST}}</p>
         </div>
         <div class="meta-area">
           <div class="invoice-title">
-            <span>#{{BILL_NUMBER}}{{FINANCIAL_YEAR_LABEL}}</span>
-            <span style="font-size: 9pt; opacity: 0.6;">INVOICE</span>
+            <span style="color: #000; font-weight: 900;">#{{BILL_NUMBER}}{{FINANCIAL_YEAR_LABEL}}</span>
+            <span style="font-size: 11pt; font-weight: 900; color: #000;">INVOICE</span>
           </div>
           <div class="meta-row"><span>DATE</span> <span>{{DATE}}</span></div>
           <div class="meta-row"><span>AGENT</span> <span>{{AGENT_TYPE}}</span></div>
@@ -135,7 +135,7 @@
         <div class="section-label">Bill To</div>
         <div class="party-name">{{PARTY_NAME}}</div>
         <div class="party-address">{{PARTY_ADDRESS}}</div>
-        {{PARTY_GST_ROW}}
+        {{{PARTY_GST_ROW}}}
       </div>
 
       <div class="table-container">
@@ -143,16 +143,16 @@
           <thead>
             <tr>
               <th style="width: 80px;" class="text-center">SIZE</th>
-              {{PARTICULARS_TH}}
+              {{{PARTICULARS_TH}}}
               <th style="width: 50px;" class="text-center numeric-cell">QTY</th>
               <th style="width: 80px;" class="text-right numeric-cell">RATE</th>
-              {{BALE_TH}}
+              {{{BALE_TH}}}
               <th style="width: 140px;" class="text-right numeric-cell" style="padding-right: 15px;">AMOUNT</th>
             </tr>
           </thead>
           <tbody>
-            {{ITEMS_ROWS}}
-            {{EMPTY_ROWS}}
+            {{{ITEMS_ROWS}}}
+            {{{EMPTY_ROWS}}}
           </tbody>
         </table>
       </div>
@@ -160,7 +160,7 @@
       <div class="calc-grid">
         <div class="calc-notes">
           <div class="section-label">Notes / Conditions</div>
-          {{COMPANY_TERMS}}
+          {{{COMPANY_TERMS}}}
         </div>
         <div class="calc-table">
           <div class="calc-row">
@@ -176,15 +176,15 @@
               </div>
             </div>
           </div>
-          {{DISCOUNT_ROW}}
-          {{TAX_ROWS}}
+          {{{DISCOUNT_ROW}}}
+          {{{TAX_ROWS}}}
         </div>
       </div>
 
       <div class="total-strip">
         <div style="display:flex; flex-direction:column; gap:4px;">
           <div class="total-label">NET PAYABLE AMOUNT</div>
-          <div style="font-size: 9pt; font-weight: 600; text-transform: capitalize; letter-spacing: 0.5px; color: #333;">Rupees {{AMOUNT_WORDS}}</div>
+          <div style="font-size: 9pt; font-weight: 600; text-transform: capitalize; letter-spacing: 0.5px; color: #000;">Rupees {{AMOUNT_WORDS}}</div>
         </div>
         <div class="total-amount">
           <div class="amount-box net-value" style="padding-right: 0;">
@@ -203,7 +203,7 @@
           </div>
           <div style="margin-top: 10px;">
             <div class="section-label" style="font-size: 7pt;">Bale Tracking (Sync)</div>
-            <div class="bale-grid">{{BALE_GRID}}</div>
+            <div class="bale-grid">{{{BALE_GRID}}}</div>
           </div>
         </div>
         <div class="signature-area">

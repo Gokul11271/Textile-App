@@ -55,7 +55,7 @@
     }
 
     .sheet.single-mode {
-      justify-content: center;
+      justify-content: flex-start;
     }
 
     .sheet.double-mode {
@@ -74,23 +74,7 @@
 
     .sheet.single-mode .bill-copy {
       flex: none;
-      width: 65%;
-    }
-
-    /* Single mode slightly larger spacing and fonts */
-    .sheet.single-mode td {
-      font-size: 9.5pt;
-      padding: 10px 12px;
-    }
-    .sheet.single-mode th {
-      font-size: 8.5pt;
-      padding: 10px 12px;
-    }
-    .sheet.single-mode .party-name {
-      font-size: 12pt;
-    }
-    .sheet.single-mode tbody tr {
-      height: 32px;
+      width: calc(50% - 4mm);
     }
 
     /* Header */
@@ -216,8 +200,8 @@
 
     .party-gst {
       margin-top: 4px;
-      font-size: 8pt;
-      font-weight: bold;
+      font-size: 9.5pt;
+      font-weight: 900;
     }
     
     .highlighted {
@@ -266,12 +250,14 @@
       /* PHASE 4: Text Overflow */
       white-space: normal;
       word-break: break-word;
+      color: #000;
     }
     
     .numeric-cell {
       white-space: nowrap;
       overflow: hidden;
       font-variant-numeric: tabular-nums;
+      color: #000 !important;
     }
 
     td:not(:last-child), th:not(:last-child) {
@@ -335,6 +321,7 @@
       align-items: center;
       text-align: center;
       overflow: hidden;
+      color: #000 !important;
     }
 
     .amount-box {
@@ -342,6 +329,7 @@
       justify-content: center;
       align-items: center;
       gap: 4px;
+      color: #000 !important;
     }
 
     /* Total Strip */

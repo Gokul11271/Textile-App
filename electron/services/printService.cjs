@@ -159,7 +159,7 @@ const buildTemplateVars = (bill, items, type, settings) => {
     ? '<th style="width: 60px;" class="text-center">BALE</th>' 
     : '';
 
-  const PARTICULARS_TH = `<th class="text-left">PARTICULARS (HSN 6304)</th>`;
+  const PARTICULARS_TH = `<th class="text-center">PARTICULARS (HSN 6304)</th>`;
 
   const MIN_ROWS_BIG       = 12;
   const MIN_ROWS_TRANSPORT = 8;
@@ -328,12 +328,12 @@ const getPrintWindow = () => {
 
 // ─── Public: PDF Generation ───────────────────────────────────────────────────
 
-const generateBillPdf = async (bill, items, type = 'big') => {
+const generateBillPdf = async (bill, items, type = 'big', copiesCount = 2) => {
   return printQueue.addTask(async () => {
     try {
       const win      = getPrintWindow();
       const settings = await getSettingsObj();
-      const html     = getBillHtml(bill, items, type, settings);
+      const html     = getBillHtml(bill, items, type, settings, copiesCount);
 
       await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
