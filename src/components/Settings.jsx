@@ -124,7 +124,10 @@ export default function Settings() {
       if (!confirm) return;
       const res = await window.electron.ipcRenderer.invoke('restore-database');
       if (res.success) {
-        showAlert('Database restored successfully! Please restart the application for changes to take effect.', 'success');
+        showAlert('Database restored successfully! Restarting application...', 'success');
+        setTimeout(() => {
+          window.electron.ipcRenderer.invoke('restart-app');
+        }, 1500);
       } else if (res.error) {
         showAlert('Failed to restore database: ' + res.error, 'error');
       }

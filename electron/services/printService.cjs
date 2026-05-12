@@ -168,10 +168,10 @@ const buildTemplateVars = (bill, items, type, settings) => {
   const ITEMS_ROWS = items.map(item => `
     <tr>
       <td class="text-center">${item.size || '-'}</td>
-      <td class="text-center">${type === 'big' ? (item.productName || '') : '100% COTTON CLOTH'}</td>
+      <td class="text-center">${type === 'big' ? (item.productName || item.product_name || '') : '100% COTTON CLOTH'}</td>
       <td class="text-center numeric-cell">${item.quantity}</td>
       <td class="text-center numeric-cell">${Number(item.rate || 0).toFixed(2)}</td>
-      ${isBaleEnabled ? `<td class="text-center">${item.baleNumber || '-'}</td>` : ''}
+      ${isBaleEnabled ? `<td class="text-center">${item.baleNumber || item.bale_number || '-'}</td>` : ''}
       <td class="text-center numeric-cell">${Number(item.amount || 0).toFixed(2)}</td>
     </tr>`).join('');
 

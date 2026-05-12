@@ -32,6 +32,7 @@ export function Reports({ theme }) {
   const [batchEnd, setBatchEnd] = useState('');
   const [batchLr, setBatchLr] = useState('');
   const [printing, setPrinting] = useState(false);
+  const [printCopies, setPrintCopies] = useState({ big: 1, transport: 2 });
 
   const debouncedSearch = useDebounce(searchTerm, 300);
 
@@ -114,7 +115,8 @@ export function Reports({ theme }) {
     }
     setPrinting(true);
     try {
-      const results = await window.electron.ipcRenderer.invoke('print-bill-range', batchStart, batchEnd, type);
+      const copies = type === 'big' ? printCopies.big : printCopies.transport;
+      const results = await window.electron.ipcRenderer.invoke('print-bill-range', batchStart, batchEnd, type, copies);
       const successCount = results.filter(r => r.success).length;
       showAlert(`Batch Print Completed: ${successCount}/${results.length} bills processed.`, 'success');
     } catch (error) {
@@ -162,7 +164,7 @@ export function Reports({ theme }) {
       const updateResult = await window.electron.ipcRenderer.invoke('update-lr-numbers', batchStart, batchEnd, batchLr);
       if (updateResult.success) {
         // Now print the big bills
-        const results = await window.electron.ipcRenderer.invoke('print-bill-range', batchStart, batchEnd, 'big');
+        const results = await window.electron.ipcRenderer.invoke('print-bill-range', batchStart, batchEnd, 'big', printCopies.big);
         const successCount = results.filter(r => r.success).length;
         showAlert(`Updated LR for ${updateResult.count} bills. Print Completed: ${successCount}/${results.length} bills processed.`, 'success');
         
@@ -252,22 +254,45 @@ export function Reports({ theme }) {
           
           <div className="flex flex-col gap-2">
             <div className="flex gap-2">
+              <div className="flex items-center bg-m3-surface-container-highest rounded-full px-2 overflow-hidden border border-m3-outline-variant/30">
+                <span className="text-xs text-m3-on-surface-variant px-2 whitespace-nowrap">Copies:</span>
+                <input 
+                  type="number" 
+                  min="1" max="10" 
+                  value={printCopies.big} 
+                  onChange={(e) => setPrintCopies(p => ({...p, big: parseInt(e.target.value) || 1}))}
+                  className="w-10 bg-transparent text-center text-sm font-semibold text-m3-on-surface outline-none py-1.5"
+                />
+              </div>
               <button
                 onClick={() => handleBatchPrint('big')}
                 disabled={printing || !batchStart || !batchEnd}
                 className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-full m3-label-large transition-all ${
-                  printing || !batchStart || !batchEnd ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98] hover:shadow-m3-1'
-                } bg-m3-surface-container-highest text-m3-on-surface`}
+                  printing || !batchStart || !batchEnd ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98] hover:shadow-m3-1 hover:bg-m3-surface-container-high'
+                } bg-m3-surface-container-highest text-m3-on-surface border border-m3-outline-variant/30`}
               >
                 <Printer size={16} />
                 Print Big
               </button>
+            </div>
+            
+            <div className="flex gap-2">
+              <div className="flex items-center bg-m3-surface-container-highest rounded-full px-2 overflow-hidden border border-m3-outline-variant/30">
+                <span className="text-xs text-m3-on-surface-variant px-2 whitespace-nowrap">Copies:</span>
+                <input 
+                  type="number" 
+                  min="1" max="10" 
+                  value={printCopies.transport} 
+                  onChange={(e) => setPrintCopies(p => ({...p, transport: parseInt(e.target.value) || 1}))}
+                  className="w-10 bg-transparent text-center text-sm font-semibold text-m3-on-surface outline-none py-1.5"
+                />
+              </div>
               <button
                 onClick={() => handleBatchPrint('transport')}
                 disabled={printing || !batchStart || !batchEnd}
                 className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-full m3-label-large transition-all ${
-                  printing || !batchStart || !batchEnd ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98] hover:shadow-m3-1'
-                } bg-m3-surface-container-highest text-m3-on-surface`}
+                  printing || !batchStart || !batchEnd ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98] hover:shadow-m3-1 hover:bg-m3-surface-container-high'
+                } bg-m3-surface-container-highest text-m3-on-surface border border-m3-outline-variant/30`}
               >
                 <Printer size={16} />
                 Print Transport
@@ -277,12 +302,12 @@ export function Reports({ theme }) {
             <button
               onClick={handleBatchUpdateLrAndPrint}
               disabled={printing || !batchStart || !batchEnd || !batchLr}
-              className={`w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-full m3-label-large transition-all ${
+              className={`w-full flex items-center justify-center gap-2 px-5 py-2.5 mt-2 rounded-full m3-label-large transition-all ${
                 printing || !batchStart || !batchEnd || !batchLr ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98] hover:shadow-m3-1'
               } bg-m3-primary text-m3-on-primary`}
             >
               <FileText size={16} />
-              {printing ? 'Processing...' : 'Assign LR & Print Big Bills'}
+              {printing ? 'Processing...' : `Assign LR & Print Big Bills (${printCopies.big} copies)`}
             </button>
           </div>
         </div>

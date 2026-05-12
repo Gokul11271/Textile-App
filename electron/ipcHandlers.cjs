@@ -53,7 +53,7 @@ function setupIpcHandlers() {
     }
   });
 
-  ipcMain.handle('print-bill-range', async (event, startNo, endNo, type = 'big') => {
+  ipcMain.handle('print-bill-range', async (event, startNo, endNo, type = 'big', copiesCount = 1) => {
     const bills = await dbAll(`
       SELECT b.*, p.short_name as party_short_name, c.name as party_name, p.address as party_address, p.gst_number as party_gst_number 
       FROM bills b 
@@ -66,7 +66,7 @@ function setupIpcHandlers() {
     const results = [];
     for (const bill of bills) {
       const items = await dbAll('SELECT * FROM bill_items WHERE bill_id = ?', [bill.id]);
-      const pdfPath = await generateBillPdf(bill, items, type);
+      const pdfPath = await generateBillPdf(bill, items, type, copiesCount);
       results.push({ billNumber: bill.bill_number, success: !!pdfPath });
     }
     return results;
