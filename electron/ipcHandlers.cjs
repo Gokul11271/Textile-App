@@ -1,5 +1,5 @@
 const { ipcMain, BrowserWindow, shell, app } = require('electron');
-const { dbRun, dbAll, dbGet, dbExec } = require('./database.cjs');
+const { db, dbRun, dbAll, dbGet, dbExec } = require('./database.cjs');
 const fs = require('fs');
 const path = require('path');
 const { validatePayload, CustomerSchema, PartySchema, SettingsSchema, ProductSchema, ipcResponse } = require('./ipcContracts.cjs');
@@ -125,6 +125,13 @@ function setupIpcHandlers() {
     });
     if (filePaths && filePaths.length > 0) {
       try {
+        await new Promise((resolve, reject) => {
+          db.close((err) => {
+            if (err) console.error("Error closing DB during restore:", err);
+            resolve(); // Resolve anyway to attempt copy
+          });
+        });
+        
         fs.copyFileSync(filePaths[0], dbPath);
         return { success: true }; 
       } catch (e) {
@@ -132,6 +139,11 @@ function setupIpcHandlers() {
       }
     }
     return { success: false, cancelled: true };
+  });
+
+  ipcMain.handle('restart-app', () => {
+    app.relaunch();
+    app.exit(0);
   });
 
   ipcMain.handle('factory-reset', async (event, password) => {
