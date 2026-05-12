@@ -40,11 +40,24 @@ A modern, fast, and feature-rich desktop billing application built specifically 
 
 ## 📦 Building/Packaging for Production
 
-To create a standalone setup executable (`.exe` for Windows):
+To create a standalone setup executable (`.exe` for Windows), you can use the provided batch script or use npm directly:
+
+### Option 1: Using the Batch Script (Recommended for Windows)
+Simply double-click the **`build_app.bat`** file in the project root folder. This script will automatically:
+1. Verify that Node.js is installed.
+2. Install any missing dependencies.
+3. Build the Vite frontend for production.
+4. Package the application into an `.exe` installer using Electron Builder.
+
+### Option 2: Using the Command Line
+Alternatively, you can build the application manually via the terminal. Run the following commands:
 ```bash
+npm install
 npm run package
 ```
-Output installers are placed in the `release/` directory.
+
+**Where is the output?**
+In either case, the final standalone installer (e.g., `Dhanalakshmi Textiles Billing Setup x.x.x.exe`) will be placed in the `release/` directory.
 
 ---
 
