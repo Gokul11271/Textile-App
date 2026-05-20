@@ -17,5 +17,8 @@ contextBridge.exposeInMainWorld('electron', {
     getPartyGsts: (partyId) => ipcRenderer.invoke('get-party-gsts', partyId),
     setActiveGst: (partyId, gstId) => ipcRenderer.invoke('set-active-gst', partyId, gstId),
     deletePartyGst: (partyId, gstId) => ipcRenderer.invoke('delete-party-gst', partyId, gstId),
+    getPurchases: (startDate, endDate) => ipcRenderer.invoke('get-purchases', startDate, endDate),
+    savePurchase: (purchase) => ipcRenderer.invoke('save-purchase', purchase),
+    deletePurchase: (id) => ipcRenderer.invoke('delete-purchase', id),
   }
 });

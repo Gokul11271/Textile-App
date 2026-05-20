@@ -37,7 +37,9 @@ const getRecentBills = async () => {
 const getSalesReport = async (startDate, endDate) => {
   // ⚠️ Dates must be stored in YYYY-MM-DD format in the database for BETWEEN to sort correctly
   let query = `
-    SELECT b.*, p.short_name as party_short_name, c.name as party_name, p.gst_number as party_gst_number
+    SELECT b.*, p.short_name as party_short_name, c.name as party_name, 
+           COALESCE(b.party_gst, p.gst_number) as party_gst_number,
+           p.state as party_state
     FROM bills b
     LEFT JOIN parties p ON b.party_id = p.id
     LEFT JOIN customers c ON p.customer_id = c.id

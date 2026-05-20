@@ -2,12 +2,13 @@ const { ipcMain, BrowserWindow, shell, app } = require('electron');
 const { db, dbRun, dbAll, dbGet, dbExec } = require('./database.cjs');
 const fs = require('fs');
 const path = require('path');
-const { validatePayload, CustomerSchema, PartySchema, SettingsSchema, ProductSchema, ipcResponse } = require('./ipcContracts.cjs');
+const { validatePayload, CustomerSchema, PartySchema, SettingsSchema, ProductSchema, PaymentSchema, ipcResponse } = require('./ipcContracts.cjs');
 
 function setupIpcHandlers() {
   const printService = require('./services/printService.cjs');
   const billService  = require('./services/billService.cjs');
   const reportService = require('./services/reportService.cjs');
+  const purchaseService = require('./services/purchaseService.cjs');
   const getSettingsObj = printService.getSettingsObj;
   const generateBillPdf = printService.generateBillPdf;
   const getBillHtml = printService.getBillHtml;
@@ -386,6 +387,130 @@ function setupIpcHandlers() {
       return filePath;
     }
     return null;
+  });
+
+  // --- Payments and Ledger ---
+  ipcMain.handle('save-payment', async (event, payment) => {
+    const { isValid, data, error } = validatePayload(PaymentSchema, payment);
+    if (!isValid) throw new Error(error);
+
+    return await dbRun(
+      'INSERT OR REPLACE INTO payments (id, party_id, bill_id, amount, payment_mode, payment_type, payment_date, reference_no, remarks, is_deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT is_deleted FROM payments WHERE id = ?), 0))',
+      [data.id || null, data.party_id, data.bill_id || null, data.amount, data.payment_mode, data.payment_type, data.payment_date, data.reference_no || null, data.remarks || null, data.id || null]
+    );
+  });
+
+  ipcMain.handle('delete-payment', async (event, paymentId) => {
+    try {
+      await dbRun('UPDATE payments SET is_deleted = 1 WHERE id = ?', [paymentId]);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  
+  ipcMain.handle('get-global-statements', async () => {
+    try {
+      const bills = await dbAll(`
+        SELECT b.id, b.bill_number, b.date as entry_date, b.total_amount as debit, b.party_id, p.short_name as party_short_name, c.name as party_name
+        FROM bills b
+        LEFT JOIN parties p ON b.party_id = p.id
+        LEFT JOIN customers c ON p.customer_id = c.id
+        ORDER BY b.date DESC, b.id DESC
+      `);
+      
+      const payments = await dbAll(`
+        SELECT bill_id, SUM(amount + COALESCE(discount_amount, 0)) as total_paid
+        FROM payments 
+        WHERE is_deleted = 0 AND bill_id IS NOT NULL
+        GROUP BY bill_id
+      `);
+      
+      // Map payment sums to bills
+      const paymentMap = {};
+      payments.forEach(p => { paymentMap[p.bill_id] = p.total_paid; });
+      
+      const globalBills = bills.map(b => {
+        const paid = paymentMap[b.id] || 0;
+        return {
+          ...b,
+          paid,
+          pending: b.debit - paid
+        };
+      });
+      
+      return { success: true, globalBills };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('get-party-statement', async (event, partyId) => {
+    try {
+      const party = await dbGet('SELECT * FROM parties WHERE id = ?', [partyId]);
+      if (!party) throw new Error('Party not found');
+
+      const bills = await dbAll('SELECT id, bill_number, date as entry_date, total_amount as debit, 0 as credit, "BILL" as type FROM bills WHERE party_id = ?', [partyId]);
+      const payments = await dbAll('SELECT id, bill_id, payment_mode, payment_type, reference_no, remarks, payment_date as entry_date, 0 as debit, amount as credit, "PAYMENT" as type FROM payments WHERE party_id = ? AND is_deleted = 0', [partyId]);
+
+      // Enrich bills with payment tracking
+      const enrichedBills = bills.map(b => {
+        const linkedPayments = payments.filter(p => p.bill_id === b.id);
+        const paid = linkedPayments.reduce((sum, p) => sum + p.credit, 0);
+        return {
+          ...b,
+          paid,
+          pending: b.debit - paid,
+          linkedPayments
+        };
+      });
+
+      let transactions = [...enrichedBills, ...payments];
+      
+      // Sort chronologically (date, then type so bills come before payments on same day maybe?)
+      transactions.sort((a, b) => {
+        const d1 = new Date(a.entry_date).getTime();
+        const d2 = new Date(b.entry_date).getTime();
+        if (d1 === d2) {
+          // Bill before payment
+          if (a.type === 'BILL' && b.type === 'PAYMENT') return -1;
+          if (a.type === 'PAYMENT' && b.type === 'BILL') return 1;
+          return a.id - b.id; // stable sort
+        }
+        return d1 - d2;
+      });
+
+      return {
+        success: true,
+        party,
+        transactions,
+        bills: enrichedBills
+      };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('print-payment-receipt', async (event, paymentId) => {
+    return await printService.printPaymentReceipt(paymentId);
+  });
+
+  ipcMain.handle('print-party-statement', async (event, partyId, startDate, endDate) => {
+    return await printService.printPartyStatement(partyId, startDate, endDate);
+  });
+
+  // --- Purchase Report Handlers ---
+  ipcMain.handle('get-purchases', async (event, startDate, endDate) => {
+    return await purchaseService.getPurchases(startDate, endDate);
+  });
+
+  ipcMain.handle('save-purchase', async (event, purchase) => {
+    return await purchaseService.savePurchase(purchase);
+  });
+
+  ipcMain.handle('delete-purchase', async (event, id, deletedBy, reason) => {
+    return await purchaseService.softDeletePurchase(id, deletedBy, reason);
   });
 }
 

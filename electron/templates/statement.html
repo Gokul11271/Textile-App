@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Party Statement</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 0;
+    color: #000;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page {
+    padding: 40px;
+    width: 210mm;
+    min-height: 297mm;
+    box-sizing: border-box;
+    margin: 0 auto;
+  }
+  .header {
+    text-align: center;
+    border-bottom: 2px solid #000;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+  }
+  .company-name {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .company-address {
+    font-size: 12px;
+    color: #444;
+    margin: 4px 0 0;
+  }
+  .title {
+    font-size: 18px;
+    font-weight: 600;
+    text-transform: uppercase;
+    text-align: center;
+    margin: 15px 0;
+    letter-spacing: 1px;
+  }
+  .info-grid {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .party-details, .statement-details {
+    width: 48%;
+  }
+  .info-row {
+    display: flex;
+    margin-bottom: 5px;
+    font-size: 14px;
+  }
+  .info-label {
+    font-weight: 600;
+    width: 120px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    font-size: 13px;
+  }
+  th, td {
+    border: 1px solid #000;
+    padding: 8px;
+    text-align: left;
+  }
+  th {
+    background: #f0f0f0;
+    font-weight: 600;
+  }
+  .text-right { text-align: right; }
+  .text-center { text-align: center; }
+  .summary {
+    display: flex;
+    justify-content: flex-end;
+  }
+  .summary-box {
+    width: 300px;
+    border: 1px solid #000;
+    padding: 15px;
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .summary-row.total {
+    font-weight: 700;
+    border-top: 1px solid #000;
+    padding-top: 8px;
+    margin-top: 8px;
+  }
+  .remarks {
+    font-size: 11px;
+    color: #666;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <h1 class="company-name">{{COMPANY_NAME}}</h1>
+    <p class="company-address">{{COMPANY_ADDRESS}}</p>
+  </div>
+  
+  <div class="title">STATEMENT OF ACCOUNT</div>
+  
+  <div class="info-grid">
+    <div class="party-details">
+      <div class="info-row"><div class="info-label">To Party:</div><div><b>{{PARTY_NAME}}</b></div></div>
+      <div class="info-row"><div class="info-label">Address:</div><div>{{PARTY_ADDRESS}}</div></div>
+      <div class="info-row"><div class="info-label">GSTIN:</div><div>{{PARTY_GST}}</div></div>
+    </div>
+    <div class="statement-details">
+      <div class="info-row"><div class="info-label">Period:</div><div>{{PERIOD}}</div></div>
+      <div class="info-row"><div class="info-label">Generated On:</div><div>{{GENERATED_ON}}</div></div>
+    </div>
+  </div>
+  
+  <table>
+    <thead>
+      <tr>
+        <th class="text-center" style="width: 80px;">Date</th>
+        <th>Particulars</th>
+        <th class="text-center" style="width: 100px;">Ref No.</th>
+        <th class="text-right" style="width: 90px;">Debit (₹)</th>
+        <th class="text-right" style="width: 90px;">Credit (₹)</th>
+        <th class="text-right" style="width: 100px;">Balance (₹)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="text-center">-</td>
+        <td><b>Opening Balance</b></td>
+        <td class="text-center">-</td>
+        <td class="text-right">-</td>
+        <td class="text-right">-</td>
+        <td class="text-right"><b>{{OPENING_BALANCE}}</b></td>
+      </tr>
+      {{{TRANSACTIONS_HTML}}}
+    </tbody>
+  </table>
+  
+  <div class="summary">
+    <div class="summary-box">
+      <div class="summary-row">
+        <span>Total Billed:</span>
+        <span>₹ {{TOTAL_BILLED}}</span>
+      </div>
+      <div class="summary-row">
+        <span>Total Paid:</span>
+        <span>₹ {{TOTAL_PAID}}</span>
+      </div>
+      <div class="summary-row total">
+        <span>Closing Balance:</span>
+        <span>₹ {{CLOSING_BALANCE}}</span>
+      </div>
+    </div>
+  </div>
+  
+</div>
+</body>
+</html>

@@ -102,6 +102,19 @@ const BillSchema = z.object({
   subtotal: z.number().optional().default(0)
 });
 
+const PaymentSchema = z.object({
+  id: z.coerce.number().nullable().optional(),
+  party_id: z.number({ required_error: 'Party ID is required' }),
+  bill_id: z.coerce.number().nullable().optional(),
+  amount: z.union([z.string(), z.number()]).transform(v => Number(v) || 0),
+  discount_amount: z.union([z.string(), z.number()]).transform(v => Number(v) || 0).optional().default(0),
+  payment_mode: z.enum(['Cash', 'Online', 'Cheque']).default('Cash'),
+  payment_type: z.enum(['advance', 'bill_payment', 'adjustment', 'refund']).default('bill_payment'),
+  payment_date: z.string().min(1, 'Date is required'),
+  reference_no: z.string().optional().nullable(),
+  remarks: z.string().optional().nullable()
+});
+
 module.exports = {
   ipcResponse,
   validatePayload,
@@ -110,5 +123,6 @@ module.exports = {
   SettingsSchema,
   ProductSchema,
   BillItemSchema,
-  BillSchema
+  BillSchema,
+  PaymentSchema
 };

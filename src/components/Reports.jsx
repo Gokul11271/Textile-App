@@ -20,6 +20,16 @@ function useDebounce(value, delay) {
   return debouncedValue;
 }
 
+const formatDate = (dateStr) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3 && parts[0].length === 4) {
+    // YYYY-MM-DD to DD/MM/YYYY
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+};
+
 export function Reports({ theme }) {
   const { showAlert } = useAlert();
   const [bills, setBills] = useState([]);
@@ -82,20 +92,25 @@ export function Reports({ theme }) {
   };
 
   const exportCSV = async () => {
-    const headers = ['Date', 'Bill No', 'Party Name', 'GST Number', 'Taxable Value', 'Tax Rate', 'Tax Amount', 'Total Amount', 'LR No', 'Lorry Office'];
+    const headers = ['GSTIN/UIN', 'Party Name', 'Invoice No.', 'Invoice Date', 'Value', 'Rate', 'S TOTAL', 'IGST', 'CGST', 'SGST', 'POS'];
     const rows = filteredBills.map(b => {
       const taxableValue = b.total_amount - b.tax_amount;
+      const isInterState = !!b.is_inter_state;
+      const igst = isInterState ? b.tax_amount : 0;
+      const cgst = !isInterState ? b.tax_amount / 2 : 0;
+      const sgst = !isInterState ? b.tax_amount / 2 : 0;
       return [
-        b.date,
-        b.bill_number,
-        b.party_name || b.party_short_name,
         b.party_gst_number || '',
-        taxableValue.toFixed(2),
-        b.tax_rate + '%',
-        b.tax_amount.toFixed(2),
+        b.party_name || b.party_short_name || '',
+        b.bill_number,
+        formatDate(b.date),
         b.total_amount.toFixed(2),
-        b.lr_number || '',
-        b.lorry_office || ''
+        b.tax_rate,
+        taxableValue.toFixed(2),
+        igst.toFixed(2),
+        cgst.toFixed(2),
+        sgst.toFixed(2),
+        b.party_state || ''
       ].map(val => `"${val}"`).join(',');
     });
 
@@ -387,7 +402,7 @@ export function Reports({ theme }) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-m3-surface-container border-b border-m3-outline-variant">
-                {['Date', 'Bill No', 'Party', 'GST No', 'Taxable', 'GST', 'Total', 'Action'].map((label, i) => (
+                {['GSTIN/UIN', 'Party Name', 'Invoice No.', 'Invoice Date', 'Value', 'Rate', 'S TOTAL', 'IGST', 'CGST', 'SGST', 'POS', 'Action'].map((label, i) => (
                   <th key={i} className="px-6 py-3.5 m3-label-medium text-m3-on-surface-variant">
                     {label}
                   </th>
@@ -397,7 +412,7 @@ export function Reports({ theme }) {
             <tbody className="divide-y divide-m3-outline-variant/50">
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-16 text-center">
+                  <td colSpan="12" className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <div className="w-10 h-10 rounded-full border-3 border-m3-primary/30 border-t-m3-primary animate-spin"></div>
                       <p className="m3-body-medium text-m3-on-surface-variant">Loading Data...</p>
@@ -406,33 +421,45 @@ export function Reports({ theme }) {
                 </tr>
               ) : deferredBills.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-16 text-center">
+                  <td colSpan="12" className="px-6 py-16 text-center">
                     <p className="m3-body-large text-m3-on-surface-variant/50">No records found</p>
                   </td>
                 </tr>
               ) : (
                 deferredBills.map((bill) => {
                   const taxableValue = (bill.total_amount || 0) - (bill.tax_amount || 0);
+                  const isInterState = !!bill.is_inter_state;
+                  const igst = isInterState ? bill.tax_amount : 0;
+                  const cgst = !isInterState ? bill.tax_amount / 2 : 0;
+                  const sgst = !isInterState ? bill.tax_amount / 2 : 0;
                   return (
                     <tr key={bill.bill_number} className="hover:bg-m3-surface-container-low transition-colors">
-                      <td className="px-6 py-4 m3-body-medium text-m3-on-surface">{bill.date}</td>
-                      <td className="px-6 py-4 m3-label-large font-mono text-m3-on-surface">{bill.bill_number}</td>
-                      <td className="px-6 py-4 m3-body-medium text-m3-on-surface max-w-[200px] truncate">
-                        {bill.party_name || bill.party_short_name}
-                      </td>
                       <td className="px-6 py-4 m3-body-small font-mono text-m3-on-surface-variant">
                         {bill.party_gst_number || 'N/A'}
                       </td>
+                      <td className="px-6 py-4 m3-body-medium text-m3-on-surface max-w-[200px] truncate">
+                        {bill.party_name || bill.party_short_name}
+                      </td>
+                      <td className="px-6 py-4 m3-label-large font-mono text-m3-on-surface">{bill.bill_number}</td>
+                      <td className="px-6 py-4 m3-body-medium text-m3-on-surface whitespace-nowrap">{formatDate(bill.date)}</td>
+                      <td className="px-6 py-4 m3-label-large font-mono text-m3-primary font-medium">
+                        ₹{bill.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-6 py-4 m3-body-medium text-m3-on-surface">{bill.tax_rate}</td>
                       <td className="px-6 py-4 m3-label-large font-mono text-m3-on-surface">
                         ₹{taxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 rounded-full m3-label-small bg-m3-surface-container-high text-m3-on-surface-variant">
-                          ₹{bill.tax_amount.toFixed(2)} ({bill.tax_rate}%)
-                        </span>
+                      <td className="px-6 py-4 m3-body-medium font-mono text-m3-on-surface">
+                        {igst > 0 ? `₹${igst.toFixed(2)}` : '0.00'}
                       </td>
-                      <td className="px-6 py-4 m3-label-large font-mono text-m3-primary font-medium">
-                        ₹{bill.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      <td className="px-6 py-4 m3-body-medium font-mono text-m3-on-surface">
+                        {cgst > 0 ? `₹${cgst.toFixed(2)}` : '0.00'}
+                      </td>
+                      <td className="px-6 py-4 m3-body-medium font-mono text-m3-on-surface">
+                        {sgst > 0 ? `₹${sgst.toFixed(2)}` : '0.00'}
+                      </td>
+                      <td className="px-6 py-4 m3-body-medium text-m3-on-surface-variant whitespace-nowrap">
+                        {bill.party_state || 'N/A'}
                       </td>
                       <td className="px-6 py-4">
                         <button

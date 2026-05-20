@@ -258,7 +258,41 @@ async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_bill_items_bill_id ON bill_items(bill_id);
     CREATE INDEX IF NOT EXISTS idx_bills_party_id ON bills(party_id);
     CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON system_logs(timestamp);
+
+    CREATE TABLE IF NOT EXISTS payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      party_id INTEGER NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
+      bill_id INTEGER REFERENCES bills(id) ON DELETE SET NULL,
+      amount REAL NOT NULL DEFAULT 0,
+      discount_amount REAL DEFAULT 0,
+      payment_mode TEXT DEFAULT 'Cash',
+      payment_type TEXT DEFAULT 'bill_payment',
+      payment_date TEXT NOT NULL,
+      reference_no TEXT,
+      remarks TEXT,
+      is_deleted INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_payments_party_id ON payments(party_id);
+    CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(payment_date);
+    CREATE INDEX IF NOT EXISTS idx_payments_bill_id ON payments(bill_id);
   `);
+
+  // Migrate existing payments table if it misses new columns
+  const paymentsInfo = await dbAll('PRAGMA table_info(payments)');
+  const missingPaymentColumns = [];
+  if (paymentsInfo.length > 0) {
+    if (!paymentsInfo.some(c => c.name === 'bill_id')) missingPaymentColumns.push('bill_id INTEGER REFERENCES bills(id) ON DELETE SET NULL');
+    if (!paymentsInfo.some(c => c.name === 'payment_type')) missingPaymentColumns.push("payment_type TEXT DEFAULT 'bill_payment'");
+    if (!paymentsInfo.some(c => c.name === 'reference_no')) missingPaymentColumns.push('reference_no TEXT');
+    if (!paymentsInfo.some(c => c.name === 'is_deleted')) missingPaymentColumns.push('is_deleted INTEGER DEFAULT 0');
+    if (!paymentsInfo.some(c => c.name === 'discount_amount')) missingPaymentColumns.push('discount_amount REAL DEFAULT 0');
+    
+    for (const colDef of missingPaymentColumns) {
+      try { await dbExec(`ALTER TABLE payments ADD COLUMN ${colDef};`); } catch (e) { console.error('Failed to alter payments table:', e); }
+    }
+  }
 
   // Phase 6: party_gst table — one row per GST number per party
   await dbExec(`
@@ -271,6 +305,41 @@ async function initDatabase() {
       UNIQUE(party_id, gst_number)
     );
     CREATE INDEX IF NOT EXISTS idx_party_gst_party_id ON party_gst(party_id);
+  `);
+
+  // Drop old purchases dev table if it lacks the new schema fields
+  const purchasesInfo = await dbAll('PRAGMA table_info(purchases)');
+  if (purchasesInfo.length > 0 && !purchasesInfo.some(c => c.name === 'taxable_amount')) {
+    try {
+      await dbExec('DROP TABLE purchases;');
+    } catch (e) {
+      console.error('Failed to drop old purchases table:', e);
+    }
+  }
+
+  await dbExec(`
+    CREATE TABLE IF NOT EXISTS purchases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_number TEXT NOT NULL,
+      supplier_name TEXT NOT NULL,
+      supplier_gst TEXT,
+      supplier_state TEXT,
+      date TEXT NOT NULL,
+      taxable_amount REAL NOT NULL,
+      tax_rate REAL DEFAULT 0,
+      tax_amount REAL DEFAULT 0,
+      total_amount REAL NOT NULL,
+      is_inter_state INTEGER DEFAULT 0,
+      created_by TEXT DEFAULT 'Staff',
+      deleted_by TEXT,
+      delete_reason TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      is_deleted INTEGER DEFAULT 0,
+      UNIQUE(supplier_name, invoice_number)
+    );
+    CREATE INDEX IF NOT EXISTS idx_purchases_invoice ON purchases(invoice_number);
+    CREATE INDEX IF NOT EXISTS idx_purchases_date ON purchases(date);
   `);
 
   // Add party_gst snapshot column to bills (frozen at creation time)
@@ -328,6 +397,49 @@ async function initDatabase() {
 
   // Phase 5: Prune old logs to keep DB size small
   await pruneLogs();
+
+  // Phase 7: Date format migration (DD-MMM-YYYY -> YYYY-MM-DD)
+  await migrateBillDates();
+}
+
+/**
+ * Migrates old date format (DD-MMM-YYYY) to standard (YYYY-MM-DD)
+ */
+async function migrateBillDates() {
+  const bills = await dbAll("SELECT id, date FROM bills WHERE date LIKE '%-%-%'");
+  
+  const monthMap = {
+    'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04', 'MAY': '05', 'JUN': '06',
+    'JUL': '07', 'AUG': '08', 'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+  };
+
+  let migratedCount = 0;
+  await dbRun('BEGIN TRANSACTION');
+  try {
+    for (const bill of bills) {
+      const parts = bill.date.split('-');
+      if (parts.length === 3 && isNaN(parts[1])) {
+        // Looks like DD-MMM-YYYY
+        const day = parts[0].padStart(2, '0');
+        const monthStr = parts[1].toUpperCase();
+        const year = parts[2];
+        const monthNum = monthMap[monthStr];
+        
+        if (monthNum && year.length === 4) {
+          const newDate = `${year}-${monthNum}-${day}`;
+          await dbRun('UPDATE bills SET date = ? WHERE id = ?', [newDate, bill.id]);
+          migratedCount++;
+        }
+      }
+    }
+    await dbRun('COMMIT');
+    if (migratedCount > 0) {
+      console.log(`Migrated ${migratedCount} bill dates to YYYY-MM-DD format.`);
+    }
+  } catch (e) {
+    await dbRun('ROLLBACK');
+    console.error('Failed to migrate bill dates:', e);
+  }
 }
 
 /**

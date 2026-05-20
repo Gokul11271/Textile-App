@@ -67,9 +67,28 @@ const saveBill = async (bill, items) => {
       billId = existing.id;
       await dbRun('DELETE FROM bill_items WHERE bill_id = ?', [billId]);
     } else {
-      // Phase 4: Atomic counter — guaranteed return value via RETURNING or fallback SELECT
-      const newValue = await incrementCounter('bill_number');
-      const actualBillNumber = newValue.toString();
+      let actualBillNumber = validBill.billNumber;
+      let numExists = false;
+
+      if (actualBillNumber) {
+        const existingNum = await dbGet('SELECT id FROM bills WHERE bill_number = ?', [actualBillNumber]);
+        if (existingNum) {
+          numExists = true;
+        }
+      }
+
+      if (!actualBillNumber || numExists) {
+        const newValue = await incrementCounter('bill_number');
+        actualBillNumber = newValue.toString();
+      } else {
+        const customNum = parseInt(actualBillNumber, 10);
+        if (!isNaN(customNum)) {
+          await dbRun(
+            `UPDATE counters SET value = MAX(value, ?) WHERE name = 'bill_number'`,
+            [customNum]
+          );
+        }
+      }
 
       const billResult = await dbRun(`
         INSERT INTO bills (
@@ -131,8 +150,27 @@ const saveBill = async (bill, items) => {
  * O(1) — reads a single row instead of scanning all bills.
  */
 const getLastBillNumber = async () => {
-  const row = await dbGet(`SELECT value FROM counters WHERE name = 'bill_number'`);
-  return (row && row.value > 0) ? row.value.toString() : null;
+  const rows = await dbAll('SELECT bill_number FROM bills');
+  const numbers = rows
+    .map(r => parseInt(r.bill_number, 10))
+    .filter(num => !isNaN(num) && num > 0)
+    .sort((a, b) => a - b);
+
+  if (numbers.length === 0) {
+    const row = await dbGet(`SELECT value FROM counters WHERE name = 'bill_number'`);
+    return (row && row.value > 0) ? row.value.toString() : '0';
+  }
+
+  // Start checking for gaps from the first (minimum) bill number
+  let nextNo = numbers[0];
+  for (const num of numbers) {
+    if (num === nextNo) {
+      nextNo++;
+    } else if (num > nextNo) {
+      break;
+    }
+  }
+  return (nextNo - 1).toString();
 };
 
 /**

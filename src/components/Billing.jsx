@@ -8,9 +8,9 @@ export function Billing() {
   const formatDate = (date) => {
     const d = new Date(date);
     const day = d.getDate().toString().padStart(2, '0');
-    const month = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
     const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
+    return `${year}-${month}-${day}`;
   };
 
   const [billData, setBillData] = useState({
@@ -541,7 +541,12 @@ export function Billing() {
             <ChevronLeft size={16} />
             <span>Prev</span>
           </button>
-          <button onClick={() => resetForm()} className="flex items-center gap-1.5 px-3 py-2 rounded-full m3-label-large border border-m3-outline text-m3-primary hover:bg-m3-primary/8 transition-all">
+          <button onClick={() => {
+            window.electron.db.getLastBillNumber().then(lastNo => {
+              const nextNo = lastNo ? (parseInt(lastNo) + 1).toString() : '1';
+              resetForm(nextNo);
+            });
+          }} className="flex items-center gap-1.5 px-3 py-2 rounded-full m3-label-large border border-m3-outline text-m3-primary hover:bg-m3-primary/8 transition-all">
             <Plus size={16} />
             <span>New</span>
           </button>
@@ -661,13 +666,12 @@ export function Billing() {
               <div>
                 <label className={labelBase}>Date</label>
                 <input
-                  type="text"
+                  type="date"
                   ref={dateRef}
                   value={billData.date}
-                  onChange={e => setBillData({ ...billData, date: e.target.value.toUpperCase() })}
+                  onChange={e => setBillData({ ...billData, date: e.target.value })}
                   onKeyDown={e => e.key === 'Enter' && partyNameRef.current?.focus()}
                   className={`${inputBase} font-mono`}
-                  placeholder="DD-MMM-YYYY"
                 />
               </div>
             </div>

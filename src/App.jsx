@@ -3,7 +3,9 @@ import { Layout } from './components/Layout'
 import { Dashboard } from './components/Dashboard'
 import { Billing } from './components/Billing'
 import Parties from './components/Parties'
+import Statements from './components/Statements'
 import { Reports } from './components/Reports'
+import Purchases from './components/Purchases'
 import Settings from './components/Settings'
 import { AlertProvider } from './components/AlertProvider'
 import { Toaster } from 'sonner'
@@ -54,7 +56,9 @@ function App() {
           {currentPage === 'dashboard' && <Dashboard onNavigate={setCurrentPage} />}
           {currentPage === 'billing' && <Billing />}
           {currentPage === 'parties' && <Parties />}
+          {currentPage === 'statements' && <Statements />}
           {currentPage === 'reports' && <Reports theme={theme} />}
+          {currentPage === 'purchases' && <Purchases theme={theme} />}
           {currentPage === 'settings' && <Settings />}
         </Layout>
       </AlertProvider>
