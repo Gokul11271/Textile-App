@@ -474,9 +474,10 @@ export function Purchases({ theme }) {
                   <label className={labelBase}>Supplier GSTIN</label>
                   <input
                     type="text"
+                    maxLength={15}
                     value={supplierGst}
-                    onChange={(e) => setSupplierGst(e.target.value)}
-                    className={`${inputBase} font-mono`}
+                    onChange={(e) => setSupplierGst(e.target.value.toUpperCase())}
+                    className={`${inputBase} font-mono uppercase`}
                     placeholder="15-digit GSTIN"
                   />
                 </div>

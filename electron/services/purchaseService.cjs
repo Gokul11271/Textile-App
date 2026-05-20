@@ -7,7 +7,7 @@ function validateGSTIN(gstin) {
   if (!gstin) return true; // Optional field
   const cleanGstin = gstin.trim().toUpperCase();
   if (cleanGstin.length !== 15) return false;
-  const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+  const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[0-9A-Z]{1}[0-9A-Z]{1}$/;
   return gstRegex.test(cleanGstin);
 }
 

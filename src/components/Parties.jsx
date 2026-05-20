@@ -339,9 +339,10 @@ const Parties = () => {
                       </button>
                       <input
                         type="text"
+                        maxLength={15}
                         value={entry.gst_number}
                         onChange={e => setGstEntries(prev => prev.map((g, i) => i === idx ? { ...g, gst_number: e.target.value.toUpperCase() } : g))}
-                        className="flex-1 rounded-md px-3 py-2 text-sm bg-m3-surface-container-highest border border-m3-outline-variant text-m3-on-surface placeholder:text-m3-on-surface-variant/40 focus:border-m3-primary outline-none transition-all font-mono"
+                        className="flex-1 rounded-md px-3 py-2 text-sm bg-m3-surface-container-highest border border-m3-outline-variant text-m3-on-surface placeholder:text-m3-on-surface-variant/40 focus:border-m3-primary outline-none transition-all font-mono uppercase"
                         placeholder={`GST #${idx + 1} — e.g. 33AAAA0000A1Z5`}
                       />
                       {entry.is_active && <span className="text-xs text-m3-primary font-semibold px-2 py-0.5 bg-m3-primary/10 rounded-full whitespace-nowrap">Active</span>}
