@@ -103,15 +103,22 @@ function setupIpcHandlers() {
 
   ipcMain.handle('backup-database', async () => {
     const { dialog } = require('electron');
-    const dbPath = path.join(app.getPath('userData'), 'database', 'dhanalakshmi.db');
     const { filePath } = await dialog.showSaveDialog({
       title: 'Backup Database',
       defaultPath: `dhanalakshmi_backup_${new Date().toISOString().slice(0,10)}.db`,
       filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite'] }]
     });
     if (filePath) {
-      fs.copyFileSync(dbPath, filePath);
-      return { success: true, path: filePath };
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+        await dbRun('VACUUM INTO ?', [filePath]);
+        return { success: true, path: filePath };
+      } catch (err) {
+        console.error('Backup failed:', err);
+        return { success: false, error: err.message };
+      }
     }
     return { success: false, cancelled: true };
   });
@@ -134,6 +141,13 @@ function setupIpcHandlers() {
         });
         
         fs.copyFileSync(filePaths[0], dbPath);
+        
+        // Remove old WAL and SHM files so they don't overwrite the restored DB
+        const walPath = dbPath + '-wal';
+        const shmPath = dbPath + '-shm';
+        if (fs.existsSync(walPath)) fs.unlinkSync(walPath);
+        if (fs.existsSync(shmPath)) fs.unlinkSync(shmPath);
+        
         return { success: true }; 
       } catch (e) {
         return { success: false, error: e.message };
@@ -151,12 +165,24 @@ function setupIpcHandlers() {
     if (password !== 'admin123') return { success: false, error: 'Incorrect password' };
     await dbRun('BEGIN TRANSACTION');
     try {
+      // Clear all transactional data
+      await dbRun('DELETE FROM payments');
+      await dbRun('DELETE FROM purchase_items');
+      await dbRun('DELETE FROM purchases');
+      await dbRun('DELETE FROM agent_payouts');
+      
+      // Clear main entities
       await dbRun('DELETE FROM bill_items');
       await dbRun('DELETE FROM bills');
+      await dbRun('DELETE FROM party_gst');
       await dbRun('DELETE FROM parties');
       await dbRun('DELETE FROM customers');
       await dbRun('DELETE FROM agents');
-      // Intentionally leaving settings intact
+      
+      // Reset the bill number counter
+      await dbRun("UPDATE counters SET value = 0 WHERE name = 'bill_number'");
+      
+      // Intentionally leaving settings and products intact
       await dbRun('COMMIT');
       return { success: true };
     } catch (e) {
@@ -511,6 +537,136 @@ function setupIpcHandlers() {
 
   ipcMain.handle('delete-purchase', async (event, id, deletedBy, reason) => {
     return await purchaseService.softDeletePurchase(id, deletedBy, reason);
+  });
+
+  // --- Agent Management Handlers ---
+  ipcMain.handle('save-agent', async (event, agent) => {
+    try {
+      if (!agent.name || !agent.name.trim()) throw new Error('Agent name is required');
+      const rate = parseFloat(agent.commission_rate) || 0;
+      
+      if (agent.id) {
+        await dbRun(
+          'UPDATE agents SET name = ?, commission_rate = ? WHERE id = ?',
+          [agent.name.trim(), rate, agent.id]
+        );
+        return { success: true, id: agent.id };
+      } else {
+        const result = await dbRun(
+          'INSERT INTO agents (name, commission_rate) VALUES (?, ?)',
+          [agent.name.trim(), rate]
+        );
+        return { success: true, id: result.lastID };
+      }
+    } catch (err) {
+      console.error('Failed to save agent:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('delete-agent', async (event, agentId) => {
+    try {
+      const usedInBill = await dbGet('SELECT id FROM bills WHERE agent_id = ? LIMIT 1', [agentId]);
+      if (usedInBill) {
+        throw new Error('This agent is linked to existing bills and cannot be deleted.');
+      }
+      await dbRun('DELETE FROM agents WHERE id = ?', [agentId]);
+      return { success: true };
+    } catch (err) {
+      console.error('Failed to delete agent:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('get-agent-bills', async (event, agentId) => {
+    try {
+      const bills = await dbAll(`
+        SELECT b.id, b.bill_number, b.date, b.total_amount, b.tax_amount, 
+               p.short_name as party_short_name, c.name as party_name
+        FROM bills b
+        LEFT JOIN parties p ON b.party_id = p.id
+        LEFT JOIN customers c ON p.customer_id = c.id
+        WHERE b.agent_id = ?
+        ORDER BY b.date DESC, b.id DESC
+      `, [agentId]);
+
+      for (const bill of bills) {
+        const pRow = await dbGet(`
+          SELECT SUM(amount + COALESCE(discount_amount, 0)) as total_paid
+          FROM payments
+          WHERE is_deleted = 0 AND bill_id = ?
+        `, [bill.id]);
+        bill.paid_amount = pRow ? (pRow.total_paid || 0) : 0;
+      }
+      return { success: true, bills };
+    } catch (err) {
+      console.error('Failed to get agent bills:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('get-agent-payouts', async (event, agentId) => {
+    try {
+      const payouts = await dbAll(`
+        SELECT * FROM agent_payouts
+        WHERE agent_id = ?
+        ORDER BY payout_date DESC, id DESC
+      `, [agentId]);
+      return { success: true, payouts };
+    } catch (err) {
+      console.error('Failed to get agent payouts:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('save-agent-payout', async (event, payout) => {
+    try {
+      const amount = parseFloat(payout.amount);
+      if (isNaN(amount) || amount <= 0) throw new Error('Payout amount must be greater than zero.');
+      if (!payout.payout_date) throw new Error('Payout date is required.');
+      
+      if (payout.id) {
+        await dbRun(`
+          UPDATE agent_payouts
+          SET amount = ?, payout_date = ?, payment_mode = ?, reference_no = ?, remarks = ?
+          WHERE id = ?
+        `, [
+          amount,
+          payout.payout_date,
+          payout.payment_mode || 'Cash',
+          payout.reference_no ? payout.reference_no.trim() : null,
+          payout.remarks ? payout.remarks.trim() : null,
+          payout.id
+        ]);
+        return { success: true, id: payout.id };
+      } else {
+        const result = await dbRun(`
+          INSERT INTO agent_payouts (agent_id, amount, payout_date, payment_mode, reference_no, remarks)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [
+          payout.agent_id,
+          amount,
+          payout.payout_date,
+          payout.payment_mode || 'Cash',
+          payout.reference_no ? payout.reference_no.trim() : null,
+          payout.remarks ? payout.remarks.trim() : null
+        ]);
+        return { success: true, id: result.lastID };
+      }
+    } catch (err) {
+      console.error('Failed to save agent payout:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('delete-agent-payout', async (event, payoutId) => {
+    try {
+      await dbRun('DELETE FROM agent_payouts WHERE id = ?', [payoutId]);
+      return { success: true };
+    } catch (err) {
+      console.error('Failed to delete agent payout:', err);
+      return { success: false, error: err.message };
+    }
   });
 }
 

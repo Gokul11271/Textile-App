@@ -340,7 +340,41 @@ async function initDatabase() {
     );
     CREATE INDEX IF NOT EXISTS idx_purchases_invoice ON purchases(invoice_number);
     CREATE INDEX IF NOT EXISTS idx_purchases_date ON purchases(date);
+
+    CREATE TABLE IF NOT EXISTS purchase_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      purchase_id INTEGER NOT NULL REFERENCES purchases(id) ON DELETE CASCADE,
+      product_name TEXT NOT NULL,
+      taxable_amount REAL NOT NULL,
+      tax_rate REAL NOT NULL,
+      tax_amount REAL NOT NULL,
+      total_amount REAL NOT NULL,
+      FOREIGN KEY (purchase_id) REFERENCES purchases(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase_id ON purchase_items(purchase_id);
   `);
+
+  // Migrate existing purchases to purchase_items
+  try {
+    const purchaseItemsCount = await dbGet('SELECT COUNT(*) as cnt FROM purchase_items');
+    if (!purchaseItemsCount || purchaseItemsCount.cnt === 0) {
+      const existingPurchases = await dbAll('SELECT id, taxable_amount, tax_rate, tax_amount, total_amount FROM purchases WHERE is_deleted = 0');
+      if (existingPurchases && existingPurchases.length > 0) {
+        await dbRun('BEGIN TRANSACTION');
+        for (const p of existingPurchases) {
+          await dbRun(
+            'INSERT INTO purchase_items (purchase_id, product_name, taxable_amount, tax_rate, tax_amount, total_amount) VALUES (?, ?, ?, ?, ?, ?)',
+            [p.id, 'General Purchase', p.taxable_amount, p.tax_rate, p.tax_amount, p.total_amount]
+          );
+        }
+        await dbRun('COMMIT');
+        console.log(`Migrated ${existingPurchases.length} existing purchases into purchase_items table.`);
+      }
+    }
+  } catch (e) {
+    await dbRun('ROLLBACK');
+    console.error('Purchase items migration error:', e);
+  }
 
   // Add party_gst snapshot column to bills (frozen at creation time)
   const billsInfo = await dbAll('PRAGMA table_info(bills)');
@@ -370,6 +404,31 @@ async function initDatabase() {
       }
     } catch (e) {}
   }
+
+  // Agent Commission schema updates
+  try {
+    const agentsInfo = await dbAll('PRAGMA table_info(agents)');
+    if (!agentsInfo.some(c => c.name === 'commission_rate')) {
+      await dbExec('ALTER TABLE agents ADD COLUMN commission_rate REAL DEFAULT 0;');
+    }
+  } catch (e) {
+    console.error('Failed to alter agents table:', e);
+  }
+
+  await dbExec(`
+    CREATE TABLE IF NOT EXISTS agent_payouts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      agent_id INTEGER NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+      amount REAL NOT NULL,
+      payout_date TEXT NOT NULL,
+      payment_mode TEXT DEFAULT 'Cash',
+      reference_no TEXT,
+      remarks TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_payouts_agent_id ON agent_payouts(agent_id);
+  `);
 
   // Phase 6: Migrate existing parties.gst_number → party_gst table (one-time)
   try {

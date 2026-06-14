@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { LayoutDashboard, Receipt, Users, BarChart3, Settings, LogOut, Menu, ChevronLeft, Sun, Moon, BookOpen, ShoppingCart } from 'lucide-react'
+import { LayoutDashboard, Receipt, Users, BarChart3, Settings, LogOut, Menu, ChevronLeft, Sun, Moon, BookOpen, ShoppingCart, Percent } from 'lucide-react'
 
 export function Layout({ children, activePage, onNavigate, theme, onToggleTheme }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -9,6 +9,7 @@ export function Layout({ children, activePage, onNavigate, theme, onToggleTheme 
     { id: 'billing', label: 'New Bill', icon: Receipt },
     { id: 'parties', label: 'Parties', icon: Users },
     { id: 'statements', label: 'Statements', icon: BookOpen },
+    { id: 'agents', label: 'Agents', icon: Percent },
     { id: 'reports', label: 'Reports', icon: BarChart3 },
     { id: 'purchases', label: 'Purchases', icon: ShoppingCart },
     { id: 'settings', label: 'Settings', icon: Settings },

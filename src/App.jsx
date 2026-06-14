@@ -6,6 +6,7 @@ import Parties from './components/Parties'
 import Statements from './components/Statements'
 import { Reports } from './components/Reports'
 import Purchases from './components/Purchases'
+import Agents from './components/Agents'
 import Settings from './components/Settings'
 import { AlertProvider } from './components/AlertProvider'
 import { Toaster } from 'sonner'
@@ -59,6 +60,7 @@ function App() {
           {currentPage === 'statements' && <Statements />}
           {currentPage === 'reports' && <Reports theme={theme} />}
           {currentPage === 'purchases' && <Purchases theme={theme} />}
+          {currentPage === 'agents' && <Agents />}
           {currentPage === 'settings' && <Settings />}
         </Layout>
       </AlertProvider>
