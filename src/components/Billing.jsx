@@ -360,10 +360,15 @@ export function Billing() {
         billNumber: oldBill.bill_number ? oldBill.bill_number.toString() : billNoStr,
         agentId: oldBill.agent_id,
         partyId: oldBill.party_id,
-        discountPercent: oldBill.discount_percent,
+        discountPercent: oldBill.discount_percent || 0,
+        discountAmount: oldBill.discount_amount || 0,
+        taxRate: oldBill.tax_rate !== undefined ? oldBill.tax_rate : 5,
+        taxAmount: oldBill.tax_amount || 0,
+        isInterState: oldBill.is_inter_state === 1,
         lrNumber: oldBill.lr_number,
         lorryOffice: oldBill.lorry_office,
         isBaleEnabled: oldBill.is_bale_enabled === 1,
+        subtotal: oldBill.items.reduce((s, i) => s + (i.amount || (i.quantity * i.rate)), 0),
         totalAmount: oldBill.total_amount,
         baleNumbers: oldBill.bale_numbers ?
           (typeof oldBill.bale_numbers === 'string' ? JSON.parse(oldBill.bale_numbers) : oldBill.bale_numbers)
@@ -629,7 +634,7 @@ export function Billing() {
   return (
     <div className="h-[calc(100vh-5rem)] flex flex-col overflow-hidden animate-in fade-in duration-500 font-sans">
       <datalist id="products-list">
-        {products.map((p, i) => <option key={i} value={p.name || p} />)}
+        {Array.from(new Set(products.map(p => p.name || p).filter(Boolean))).map((name, i) => <option key={i} value={name} />)}
       </datalist>
       <datalist id="sizes-list">
         {Array.from(new Set(products.map(p => p.size).filter(Boolean))).map((s, i) => <option key={i} value={s} />)}

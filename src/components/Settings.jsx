@@ -8,6 +8,7 @@ export default function Settings() {
   const { settings: globalSettings, refreshSettings, products, refreshProducts } = useStore();
   const [activeTab, setActiveTab] = useState('company');
   const [productForm, setProductForm] = useState({ id: null, size: '', name: '' });
+  const [selectedProductIds, setSelectedProductIds] = useState([]);
   const [settings, setSettings] = useState({
     activeCompany: 'company1',
     company1: {
@@ -173,9 +174,25 @@ export default function Settings() {
       try {
         await window.electron.ipcRenderer.invoke('delete-product', id);
         await refreshProducts();
+        setSelectedProductIds(prev => prev.filter(pId => pId !== id));
         showAlert('Product deleted successfully!', 'success');
       } catch (err) {
         showAlert('Failed to delete product: ' + err.message, 'error');
+      }
+    }
+  };
+
+  const handleDeleteMultipleProducts = async () => {
+    if (window.confirm(`Are you sure you want to delete ${selectedProductIds.length} products?`)) {
+      try {
+        for (const id of selectedProductIds) {
+          await window.electron.ipcRenderer.invoke('delete-product', id);
+        }
+        await refreshProducts();
+        setSelectedProductIds([]);
+        showAlert(`${selectedProductIds.length} products deleted successfully!`, 'success');
+      } catch (err) {
+        showAlert('Failed to delete some products: ' + err.message, 'error');
       }
     }
   };
@@ -401,11 +418,37 @@ export default function Settings() {
                 )}
               </form>
 
+              <div className="flex justify-between items-center mt-8 mb-4">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white">Product Catalog</h3>
+                {selectedProductIds.length > 0 && (
+                  <button 
+                    onClick={handleDeleteMultipleProducts}
+                    className="bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 text-sm"
+                  >
+                    <X size={16} /> Delete Selected ({selectedProductIds.length})
+                  </button>
+                )}
+              </div>
+
               <div className="border border-gray-200 dark:border-m3-outline rounded-xl overflow-hidden shadow-sm">
                 <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
                   <table className="w-full text-left bg-white dark:bg-m3-surface">
                     <thead className="bg-gray-50 dark:bg-m3-surface-container border-b border-gray-200 dark:border-m3-outline sticky top-0">
                       <tr>
+                        <th className="px-5 py-3 w-12">
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            checked={products.length > 0 && selectedProductIds.length === products.length}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedProductIds(products.map(p => p.id));
+                              } else {
+                                setSelectedProductIds([]);
+                              }
+                            }}
+                          />
+                        </th>
                         <th className="px-5 py-3 text-sm font-bold text-gray-600 dark:text-gray-300 w-32">Size</th>
                         <th className="px-5 py-3 text-sm font-bold text-gray-600 dark:text-gray-300">Product Name</th>
                         <th className="px-5 py-3 text-sm font-bold text-gray-600 dark:text-gray-300 w-24 text-right">Actions</th>
@@ -413,7 +456,21 @@ export default function Settings() {
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-m3-outline-variant">
                       {products.map((p) => (
-                        <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-m3-surface-container-highest transition-colors">
+                        <tr key={p.id} className={`hover:bg-gray-50 dark:hover:bg-m3-surface-container-highest transition-colors ${selectedProductIds.includes(p.id) ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                          <td className="px-5 py-3">
+                            <input 
+                              type="checkbox"
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              checked={selectedProductIds.includes(p.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedProductIds([...selectedProductIds, p.id]);
+                                } else {
+                                  setSelectedProductIds(selectedProductIds.filter(id => id !== p.id));
+                                }
+                              }}
+                            />
+                          </td>
                           <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-200">{p.size || '-'}</td>
                           <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-200">{p.name}</td>
                           <td className="px-5 py-3 text-right">
@@ -424,7 +481,7 @@ export default function Settings() {
                       ))}
                       {products.length === 0 && (
                         <tr>
-                          <td colSpan="3" className="px-5 py-8 text-center text-gray-500 dark:text-gray-400">No products found. Start adding them above.</td>
+                          <td colSpan="4" className="px-5 py-8 text-center text-gray-500 dark:text-gray-400">No products found. Start adding them above.</td>
                         </tr>
                       )}
                     </tbody>
