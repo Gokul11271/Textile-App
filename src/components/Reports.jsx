@@ -157,9 +157,7 @@ export function Reports({ theme }) {
       .then(result => {
         if (result.success) {
           showAlert('✅ Bill deleted successfully', 'success');
-          setTimeout(() => {
-            window.location.reload();
-          }, 300);
+          // State already updated optimistically
         } else {
           showAlert('❌ Failed to delete bill: ' + result.error, 'error');
         }
