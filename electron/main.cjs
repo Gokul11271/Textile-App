@@ -9,7 +9,7 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 // Initialize Database and Setup IPC Handlers
 async function initializeApp() {
   try {
-    autoBackup();       // Phase 5: best-effort daily backup before any migrations
+    await autoBackup();       // Phase 5: best-effort daily backup before any migrations
     await initDatabase();
     setupIpcHandlers();
     info('main', 'Application Started', { version: app.getVersion(), isDev });
@@ -70,8 +70,8 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  // Start initializing in the background
-  const initPromise = initializeApp();
+  // Initialize database and IPC handlers BEFORE creating the window
+  await initializeApp();
   
   createWindow();
 
@@ -80,9 +80,6 @@ app.whenReady().then(async () => {
       createWindow();
     }
   });
-
-  // Wait for initialization to complete if needed
-  await initPromise;
 });
 
 app.on('window-all-closed', () => {

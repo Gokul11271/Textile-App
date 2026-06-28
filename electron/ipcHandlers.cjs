@@ -78,6 +78,18 @@ function setupIpcHandlers() {
     return getBillHtml(bill, items, type, settings, copiesCount);
   });
 
+  // Directory Selection
+  ipcMain.handle('select-directory', async (event, defaultPath) => {
+    const { dialog } = require('electron');
+    const options = { properties: ['openDirectory'] };
+    if (defaultPath) options.defaultPath = defaultPath;
+    const result = await dialog.showOpenDialog(options);
+    if (!result.canceled && result.filePaths.length > 0) {
+      return result.filePaths[0];
+    }
+    return null;
+  });
+
   // Settings Handlers
   ipcMain.handle('get-settings', async () => {
     return await getSettingsObj();
@@ -103,9 +115,14 @@ function setupIpcHandlers() {
 
   ipcMain.handle('backup-database', async () => {
     const { dialog } = require('electron');
+    const settings = await getSettingsObj();
+    let defaultBackupPath = `dhanalakshmi_backup_${new Date().toISOString().slice(0,10)}.db`;
+    if (settings.backupLocation) {
+      defaultBackupPath = path.join(settings.backupLocation, defaultBackupPath);
+    }
     const { filePath } = await dialog.showSaveDialog({
       title: 'Backup Database',
-      defaultPath: `dhanalakshmi_backup_${new Date().toISOString().slice(0,10)}.db`,
+      defaultPath: defaultBackupPath,
       filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite'] }]
     });
     if (filePath) {

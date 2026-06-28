@@ -3,6 +3,95 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, Trash2, Save, Printer, FileText, Search, User, Package, ChevronRight, ChevronLeft } from 'lucide-react'
 import { useStore } from '../store'
 
+const ProductSearchBox = ({ value, onChange, onSelect, products, onKeyDown, inputRef }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filtered = products.filter(p => {
+    const searchStr = `${p.size || ''} ${p.name || ''}`.toLowerCase();
+    return searchStr.includes(value?.toLowerCase() || '');
+  }).filter((p, index, self) => 
+    index === self.findIndex((t) => (
+      t.name === p.name && t.size === p.size
+    ))
+  );
+
+  return (
+    <div className="relative w-full" ref={wrapperRef}>
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={e => {
+          onChange(e.target.value);
+          setIsOpen(true);
+          setActiveIndex(0);
+        }}
+        onFocus={() => setIsOpen(true)}
+        onKeyDown={e => {
+          if (e.key === 'Escape') setIsOpen(false);
+          else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActiveIndex(prev => Math.min(prev + 1, Math.min(filtered.length - 1, 9)));
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActiveIndex(prev => Math.max(prev - 1, 0));
+          } else if (e.key === 'Enter') {
+            if (isOpen && filtered.length > 0) {
+              e.preventDefault();
+              onSelect(filtered[activeIndex]);
+              setIsOpen(false);
+            } else {
+              onKeyDown(e);
+            }
+          }
+          else onKeyDown(e);
+        }}
+        className="w-full bg-transparent border-none focus:outline-none m3-body-medium text-m3-on-surface"
+        placeholder="Search product..."
+      />
+      {isOpen && filtered.length > 0 && (
+        <div className="absolute left-0 top-full mt-1 z-50 w-[400px] bg-m3-surface-container-lowest border border-m3-outline-variant shadow-m3-3 rounded-lg overflow-hidden">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-m3-surface-container text-m3-on-surface-variant m3-label-small">
+              <tr>
+                <th className="px-3 py-2 font-medium w-20">Size</th>
+                <th className="px-3 py-2 font-medium">Product Name</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-m3-outline-variant/50">
+              {filtered.slice(0, 10).map((p, i) => (
+                <tr 
+                  key={i} 
+                  className={`cursor-pointer transition-colors ${i === activeIndex ? 'bg-m3-primary-container text-m3-primary' : 'hover:bg-m3-surface-container-high'}`}
+                  onClick={() => {
+                    onSelect(p);
+                    setIsOpen(false);
+                  }}
+                >
+                  <td className="px-3 py-2 text-m3-on-surface-variant">{p.size || '-'}</td>
+                  <td className="px-3 py-2 font-medium text-m3-on-surface">{p.name}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export function Billing() {
   const { showAlert } = useAlert();
   const formatDate = (date) => {
@@ -11,6 +100,16 @@ export function Billing() {
     const month = (d.getMonth() + 1).toString().padStart(2, '0');
     const year = d.getFullYear();
     return `${year}-${month}-${day}`;
+  };
+
+  const getActiveFY = (currentSettings) => {
+    if (currentSettings && currentSettings.financialYear) {
+      return currentSettings.financialYear;
+    }
+    const today = new Date();
+    const m = today.getMonth();
+    const y = today.getFullYear();
+    return m >= 3 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
   };
 
   const [billData, setBillData] = useState({
@@ -40,18 +139,20 @@ export function Billing() {
   })
 
   const [printCopies, setPrintCopies] = useState({
-    big: 1,
-    transport: 1
+    big: 0,
+    transport: 0
   })
 
   const [items, setItems] = useState([
     { id: Date.now(), size: '', productName: '', quantity: 0, rate: 0, amount: 0, baleNumber: '' }
   ])
 
-  const [stats, setStats] = useState({ totalBills: 0, lastBillNo: 'N/A', totalBales: 0 })
+  const [stats, setStats] = useState({ totalBills: 0, lastBillNo: 'N/A', totalBales: 0, lastBaleNo: 'N/A' })
   const { parties, agents, products, settings } = useStore()
   const [partyIndex, setPartyIndex] = useState(-1)
   const [isSaving, setIsSaving] = useState(false)
+  const [showAgentPrompt, setShowAgentPrompt] = useState(false)
+  const [newAgentName, setNewAgentName] = useState('')
 
   const billNoRef = useRef(null)
   const dateRef = useRef(null)
@@ -70,13 +171,14 @@ export function Billing() {
       if (!window.electron || !window.electron.db) return;
       try {
         const lastNo = await window.electron.db.getLastBillNumber()
-        
+
         setBillData(prev => ({
           ...prev,
           taxRate: (settings && settings.defaultTaxRate !== undefined) ? Number(settings.defaultTaxRate) : prev.taxRate,
-          billNumber: lastNo ? (parseInt(lastNo) + 1).toString() : '1'
+          billNumber: lastNo ? (parseInt(lastNo) + 1).toString() : '1',
+          financialYear: getActiveFY(settings)
         }));
-        
+
         loadStats();
       } catch (error) {
         console.error("Error loading initial data", error);
@@ -126,15 +228,15 @@ export function Billing() {
     const newItems = items.map(item => {
       if (item.id === id) {
         let updatedItem = { ...item, [field]: value }
-        
+
         // Auto-fill rate if product is selected from the managed list
         if (field === 'productName') {
           const matchedProduct = products.find(p => p.name === value);
-          if (matchedProduct && matchedProduct.default_rate > 0) {
-            updatedItem.rate = matchedProduct.default_rate;
+          if (matchedProduct && matchedProduct.size) {
+            updatedItem.size = matchedProduct.size;
           }
         }
-        
+
         if (field === 'quantity' || field === 'rate' || field === 'productName') {
           updatedItem.amount = Number(updatedItem.quantity || 0) * Number(updatedItem.rate || 0)
         }
@@ -210,7 +312,7 @@ export function Billing() {
     const party = parties.find(p => p.short_name === shortName)
     if (party) {
       const isInterState = !(party.state && party.state.toLowerCase().includes('tamil nadu'));
-      
+
       // Fetch all GSTs for this party
       let partyGsts = [];
       try {
@@ -263,8 +365,8 @@ export function Billing() {
         lorryOffice: oldBill.lorry_office,
         isBaleEnabled: oldBill.is_bale_enabled === 1,
         totalAmount: oldBill.total_amount,
-        baleNumbers: oldBill.bale_numbers ? 
-          (typeof oldBill.bale_numbers === 'string' ? JSON.parse(oldBill.bale_numbers) : oldBill.bale_numbers) 
+        baleNumbers: oldBill.bale_numbers ?
+          (typeof oldBill.bale_numbers === 'string' ? JSON.parse(oldBill.bale_numbers) : oldBill.bale_numbers)
           : ['', '', '', '', '', '', '', '']
       }));
       setItems(oldBill.items.map(item => ({
@@ -380,12 +482,12 @@ export function Billing() {
       lorryOffice: '',
       isBaleEnabled: false,
       baleNumbers: ['', '', '', '', '', '', '', ''],
-      financialYear: '',
+      financialYear: getActiveFY(settings),
       totalAmount: 0,
       subtotal: 0
     })
     setItems([{ id: Date.now(), size: '', productName: '', quantity: 0, rate: 0, amount: 0, baleNumber: '' }])
-    
+
     // UI Focus Restore optimization
     setTimeout(() => {
       if (partyNameRef.current) partyNameRef.current.focus();
@@ -529,6 +631,21 @@ export function Billing() {
       <datalist id="products-list">
         {products.map((p, i) => <option key={i} value={p.name || p} />)}
       </datalist>
+      <datalist id="sizes-list">
+        {Array.from(new Set(products.map(p => p.size).filter(Boolean))).map((s, i) => <option key={i} value={s} />)}
+      </datalist>
+      <datalist id="qty-list">
+        <option value="1" />
+        <option value="2" />
+        <option value="5" />
+        <option value="10" />
+        <option value="20" />
+        <option value="50" />
+        <option value="100" />
+      </datalist>
+      <datalist id="rates-list">
+        {Array.from(new Set(products.map(p => p.default_rate).filter(Boolean))).map((r, i) => <option key={i} value={r} />)}
+      </datalist>
       {/* Header Actions */}
       <div className="flex justify-between items-center mb-4 flex-shrink-0">
         <div>
@@ -557,34 +674,22 @@ export function Billing() {
           <div className="w-px h-8 bg-m3-outline-variant mx-1"></div>
 
           {/* Transport Print Group */}
-          <div className="flex items-center gap-1 border border-m3-outline-variant rounded-full px-3 py-1.5 bg-m3-surface-container-low">
-            <span className="m3-label-small text-m3-on-surface-variant">×</span>
-            <input
-              type="number"
-              min="1"
-              max="10"
-              value={printCopies.transport}
-              onChange={e => setPrintCopies(prev => ({ ...prev, transport: parseInt(e.target.value) || 1 }))}
-              className="w-6 bg-transparent m3-label-medium text-center text-m3-on-surface focus:outline-none"
-            />
-            <button onClick={() => handlePrint('transport')} className="flex items-center gap-1 px-2 py-1 rounded-full m3-label-medium text-m3-on-surface-variant hover:text-m3-primary transition-colors">
+          <div className="flex items-center gap-1 border border-m3-outline-variant rounded-full px-2 py-1 bg-m3-surface-container-low">
+            <button onClick={() => setPrintCopies(prev => ({ ...prev, transport: Math.max(0, prev.transport - 1) }))} className="px-1.5 hover:bg-m3-surface-container-high text-m3-on-surface-variant rounded">-</button>
+            <span className="m3-label-medium text-m3-on-surface w-4 text-center">{printCopies.transport}</span>
+            <button onClick={() => setPrintCopies(prev => ({ ...prev, transport: Math.min(10, prev.transport + 1) }))} className="px-1.5 hover:bg-m3-surface-container-high text-m3-on-surface-variant rounded">+</button>
+            <button onClick={() => handlePrint('transport')} className="flex items-center gap-1 px-2 py-1 rounded-full m3-label-medium text-m3-on-surface-variant hover:text-m3-primary transition-colors border-l border-m3-outline-variant ml-1 pl-2">
               <Printer size={14} />
               <span>Transport</span>
             </button>
           </div>
 
           {/* Big Print Group */}
-          <div className="flex items-center gap-1 border border-m3-outline-variant rounded-full px-3 py-1.5 bg-m3-surface-container">
-            <span className="m3-label-small text-m3-on-surface-variant">×</span>
-            <input
-              type="number"
-              min="1"
-              max="10"
-              value={printCopies.big}
-              onChange={e => setPrintCopies(prev => ({ ...prev, big: parseInt(e.target.value) || 1 }))}
-              className="w-6 bg-transparent m3-label-medium text-center text-m3-on-surface focus:outline-none"
-            />
-            <button onClick={() => handlePrint('big')} className="flex items-center gap-1 px-2 py-1 rounded-full m3-label-medium font-medium text-m3-on-surface hover:text-m3-primary transition-colors">
+          <div className="flex items-center gap-1 border border-m3-outline-variant rounded-full px-2 py-1 bg-m3-surface-container">
+            <button onClick={() => setPrintCopies(prev => ({ ...prev, big: Math.max(0, prev.big - 1) }))} className="px-1.5 hover:bg-m3-surface-container-high text-m3-on-surface-variant rounded">-</button>
+            <span className="m3-label-medium text-m3-on-surface w-4 text-center">{printCopies.big}</span>
+            <button onClick={() => setPrintCopies(prev => ({ ...prev, big: Math.min(10, prev.big + 1) }))} className="px-1.5 hover:bg-m3-surface-container-high text-m3-on-surface-variant rounded">+</button>
+            <button onClick={() => handlePrint('big')} className="flex items-center gap-1 px-2 py-1 rounded-full m3-label-medium font-medium text-m3-on-surface hover:text-m3-primary transition-colors border-l border-m3-outline-variant ml-1 pl-2">
               <Printer size={14} />
               <span>Big Print</span>
             </button>
@@ -617,7 +722,7 @@ export function Billing() {
             { label: 'Last Bill No', value: stats.lastBillNo },
             { label: 'Total Bills', value: stats.totalBills },
             { label: 'Total Bales', value: stats.totalBales },
-            { label: 'Ready for Print', value: 'Auto Generated' }
+            { label: 'Last Bale No', value: stats.lastBaleNo || 'N/A' }
           ].map((s, i) => (
             <div key={i} className="rounded-lg px-3 py-2.5 flex flex-col items-center justify-center bg-m3-surface-container-low border border-m3-outline-variant">
               <span className="m3-label-small text-m3-on-surface-variant">{s.label}</span>
@@ -644,20 +749,23 @@ export function Billing() {
                     className={`${inputBase} font-mono w-24`}
                     placeholder="Auto"
                   />
-                  <input
-                    type="text"
-                    list="fy-list"
-                    value={billData.financialYear}
-                    onChange={e => setBillData({ ...billData, financialYear: e.target.value })}
-                    className={`${inputBase} flex-1 min-w-[120px]`}
-                    placeholder="FY (e.g. 24-25)"
-                  />
-                  <datalist id="fy-list">
-                    <option value="2023-2024" />
-                    <option value="2024-2025" />
-                    <option value="2025-2026" />
-                    <option value="2026-2027" />
-                  </datalist>
+                  <div className="flex-1 min-w-[120px] relative">
+                    <input
+                      type="text"
+                      list="fy-list"
+                      value={billData.financialYear}
+                      onChange={e => setBillData({ ...billData, financialYear: e.target.value })}
+                      className={`${inputBase} w-full`}
+                      placeholder="e.g. 24-25"
+                    />
+                    <datalist id="fy-list">
+                      <option value="2023-2024" />
+                      <option value="2024-2025" />
+                      <option value="2025-2026" />
+                      <option value="2026-2027" />
+                      <option value="2027-2028" />
+                    </datalist>
+                  </div>
                   <button onClick={handleQuickFill} className="p-2.5 rounded-md bg-m3-surface-container-high text-m3-on-surface-variant hover:bg-m3-primary-container hover:text-m3-on-primary-container transition-colors">
                     <Search size={16} />
                   </button>
@@ -681,16 +789,26 @@ export function Billing() {
           <div className="lg:col-span-2 p-5 rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest space-y-4">
             <div className="flex justify-between items-center border-b border-m3-outline-variant pb-3">
               <h3 className="m3-title-small text-m3-on-surface">Recipient Details</h3>
-              <div className="flex items-center gap-2 bg-m3-surface-container px-3 py-1.5 rounded-full">
+              <div className="flex items-center gap-2 bg-m3-surface-container pl-3 pr-1 py-1 rounded-full">
                 <span className="m3-label-small text-m3-on-surface-variant">Agent:</span>
                 <select
                   value={billData.agentId || ''}
                   onChange={e => setBillData({ ...billData, agentId: e.target.value })}
-                  className="bg-transparent focus:outline-none m3-label-medium text-m3-on-surface cursor-pointer"
+                  className="bg-transparent focus:outline-none m3-label-medium text-m3-on-surface cursor-pointer py-0.5"
                 >
                   <option value="">None</option>
                   {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
+                <button
+                  onClick={() => {
+                    setNewAgentName('');
+                    setShowAgentPrompt(true);
+                  }}
+                  className="p-1 rounded-full bg-m3-primary/10 text-m3-primary hover:bg-m3-primary hover:text-m3-on-primary transition-colors"
+                  title="Create New Agent"
+                >
+                  <Plus size={14} />
+                </button>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -826,6 +944,7 @@ export function Billing() {
                     <td className="px-4 py-1.5">
                       <input
                         type="text"
+                        list="sizes-list"
                         ref={idx === 0 ? firstItemSizeRef : null}
                         value={item.size}
                         onChange={e => handleItemChange(item.id, 'size', e.target.value)}
@@ -848,6 +967,7 @@ export function Billing() {
                     <td className="px-4 py-1.5">
                       <input
                         type="number"
+                        list="qty-list"
                         value={item.quantity}
                         onChange={e => handleItemChange(item.id, 'quantity', e.target.value)}
                         onKeyDown={e => handleKeyDown(e, idx)}
@@ -857,6 +977,7 @@ export function Billing() {
                     <td className="px-4 py-1.5">
                       <input
                         type="number"
+                        list="rates-list"
                         value={item.rate}
                         onChange={e => handleItemChange(item.id, 'rate', e.target.value)}
                         onKeyDown={e => handleKeyDown(e, idx)}
@@ -1030,6 +1151,66 @@ export function Billing() {
           </div>
         </div>
       </div>
+      {showAgentPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-m3-surface-container-lowest rounded-2xl border border-m3-outline-variant p-6 shadow-m3-3 w-80">
+            <h3 className="m3-title-medium text-m3-on-surface mb-4">Enter New Agent Name</h3>
+            <input
+              type="text"
+              autoFocus
+              value={newAgentName}
+              onChange={e => setNewAgentName(e.target.value)}
+              onKeyDown={async e => {
+                if (e.key === 'Escape') {
+                  setShowAgentPrompt(false);
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (newAgentName && newAgentName.trim()) {
+                    try {
+                      const newAgent = await window.electron.ipcRenderer.invoke('save-agent', { name: newAgentName.trim(), commission_rate: 2.0 });
+                      if (newAgent.success) {
+                        await useStore.getState().refreshAgents();
+                        showAlert("Agent created successfully!", "success");
+                        setShowAgentPrompt(false);
+                      } else {
+                        showAlert("Failed to create agent: " + newAgent.error, "error");
+                      }
+                    } catch (err) {
+                      showAlert("Error saving agent: " + err.message, "error");
+                    }
+                  }
+                }
+              }}
+              className="w-full rounded-md px-3 py-2 m3-body-medium bg-m3-surface-container-highest border border-m3-outline-variant text-m3-on-surface focus:border-m3-primary focus:ring-1 focus:ring-m3-primary/30 outline-none mb-4"
+              placeholder="Agent Name"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowAgentPrompt(false)} className="px-4 py-2 rounded-full m3-label-large text-m3-on-surface-variant hover:bg-m3-surface-container-high transition-colors">Cancel</button>
+              <button
+                onClick={async () => {
+                  if (newAgentName && newAgentName.trim()) {
+                    try {
+                      const newAgent = await window.electron.ipcRenderer.invoke('save-agent', { name: newAgentName.trim(), commission_rate: 2.0 });
+                      if (newAgent.success) {
+                        await useStore.getState().refreshAgents();
+                        showAlert("Agent created successfully!", "success");
+                        setShowAgentPrompt(false);
+                      } else {
+                        showAlert("Failed to create agent: " + newAgent.error, "error");
+                      }
+                    } catch (err) {
+                      showAlert("Error saving agent: " + err.message, "error");
+                    }
+                  }
+                }}
+                className="px-4 py-2 rounded-full m3-label-large bg-m3-primary text-m3-on-primary hover:shadow-m3-1 transition-all"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

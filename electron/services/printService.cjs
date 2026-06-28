@@ -245,6 +245,7 @@ const buildTemplateVars = (bill, items, type, settings) => {
     COMPANY_ADDRESS1:    company.address1,
     COMPANY_ADDRESS2:    company.address2,
     COMPANY_GST:         company.gst,
+    COMPANY_GST_DISPLAY: company.gst ? `GSTIN: ${company.gst}` : '\u00A0',
     COMPANY_PHONE:       company.phone,
     COMPANY_BANK:        company.bankName,
     COMPANY_ACC:         company.accNo,
@@ -337,7 +338,7 @@ const generateBillPdf = async (bill, items, type = 'big', copiesCount = 2) => {
 
       await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
-      const docPath  = app.getPath('documents');
+      const docPath  = settings.pdfStoreLocation || app.getPath('documents');
       const fileName = await buildPdfFilename(bill, type);
       const pdfPath  = path.join(docPath, 'Dhanalakshmi_Bills', fileName);
       const dir      = path.dirname(pdfPath);
@@ -474,7 +475,7 @@ const printPartyStatement = async (partyId, startDate, endDate) => {
       const html = renderTemplate('statement.html', vars);
       await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
-      const docPath  = app.getPath('documents');
+      const docPath  = settings.pdfStoreLocation || app.getPath('documents');
       const fileName = sanitizeForFilename(`Statement_${partyName}_${Date.now()}.pdf`);
       const pdfPath  = path.join(docPath, 'Dhanalakshmi_Statements', fileName);
       const dir      = path.dirname(pdfPath);

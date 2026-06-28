@@ -63,8 +63,8 @@ const SettingsSchema = z.record(z.any()); // Basic validation for settings objec
 
 const ProductSchema = z.object({
   id: z.coerce.number().nullable().optional(),
-  name: z.string().min(1, 'Product Name is required'),
-  default_rate: z.union([z.string(), z.number()]).optional().transform(v => Number(v) || 0)
+  size: z.string().optional().nullable(),
+  name: z.string().min(1, 'Product Name is required')
 });
 
 const BillItemSchema = z.object({

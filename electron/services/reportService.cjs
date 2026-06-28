@@ -9,11 +9,15 @@ const getDashboardStats = async () => {
   const totalBalesRow = await dbGet(
     'SELECT COUNT(*) as count FROM bill_items WHERE bale_number IS NOT NULL AND bale_number != ""'
   );
+  const lastBaleRow = await dbGet(
+    'SELECT bale_number FROM bill_items WHERE bale_number IS NOT NULL AND bale_number != "" ORDER BY id DESC LIMIT 1'
+  );
 
   return {
     totalBills: totalBillsRow ? totalBillsRow.count : 0,
     lastBillNo: lastBill ? lastBill.bill_number : 'N/A',
-    totalBales: totalBalesRow ? totalBalesRow.count : 0
+    totalBales: totalBalesRow ? totalBalesRow.count : 0,
+    lastBaleNo: lastBaleRow ? lastBaleRow.bale_number : 'N/A'
   };
 };
 

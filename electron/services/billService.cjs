@@ -133,6 +133,17 @@ const saveBill = async (bill, items) => {
         Number(item.amount) || 0,
         item.baleNumber || ''
       ]);
+
+      // Auto-learn new size + product name combinations for autocomplete
+      if (item.productName && item.productName.trim()) {
+        await dbRun(`
+          INSERT OR IGNORE INTO products (size, name)
+          VALUES (?, ?)
+        `, [
+          item.size || '',
+          item.productName.trim()
+        ]);
+      }
     }
 
     await dbRun('COMMIT');

@@ -194,9 +194,10 @@ async function initDatabase() {
 
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
-      default_rate REAL DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      size TEXT,
+      name TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(size, name)
     );
 
     CREATE TABLE IF NOT EXISTS bills (
@@ -374,6 +375,34 @@ async function initDatabase() {
   } catch (e) {
     await dbRun('ROLLBACK');
     console.error('Purchase items migration error:', e);
+  }
+
+  // Migrate products table to include size if it doesn't exist
+  const productsInfo = await dbAll('PRAGMA table_info(products)');
+  if (!productsInfo.some(c => c.name === 'size')) {
+    console.log('Migrating products table to include size...');
+    await dbRun('BEGIN TRANSACTION');
+    try {
+      await dbExec(`
+        CREATE TABLE products_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          size TEXT,
+          name TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(size, name)
+        );
+      `);
+      await dbExec(`
+        INSERT INTO products_new (id, size, name, created_at)
+        SELECT id, '', name, created_at FROM products;
+      `);
+      await dbExec('DROP TABLE products;');
+      await dbExec('ALTER TABLE products_new RENAME TO products;');
+      await dbRun('COMMIT');
+    } catch (e) {
+      await dbRun('ROLLBACK');
+      console.error('Failed to migrate products table:', e);
+    }
   }
 
   // Add party_gst snapshot column to bills (frozen at creation time)
@@ -570,8 +599,8 @@ const getProducts = async () => {
 
 const saveProduct = async (product) => {
   return await dbRun(
-    'INSERT OR REPLACE INTO products (id, name, default_rate) VALUES (?, ?, ?)',
-    [product.id || null, product.name, product.default_rate || 0]
+    'INSERT OR REPLACE INTO products (id, size, name) VALUES (?, ?, ?)',
+    [product.id || null, product.size || '', product.name]
   );
 };
 

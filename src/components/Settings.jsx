@@ -7,7 +7,7 @@ export default function Settings() {
   const { showAlert } = useAlert();
   const { settings: globalSettings, refreshSettings, products, refreshProducts } = useStore();
   const [activeTab, setActiveTab] = useState('company');
-  const [productForm, setProductForm] = useState({ id: null, name: '', default_rate: 0 });
+  const [productForm, setProductForm] = useState({ id: null, size: '', name: '' });
   const [settings, setSettings] = useState({
     activeCompany: 'company1',
     company1: {
@@ -36,7 +36,8 @@ export default function Settings() {
     showBankOnTransport: false,
     showDiscount: true,
     theme: 'light',
-    dateFormat: 'DD/MM/YYYY'
+    dateFormat: 'DD/MM/YYYY',
+    financialYear: ''
   });
 
   const [saving, setSaving] = useState(false);
@@ -160,7 +161,7 @@ export default function Settings() {
     try {
       await window.electron.ipcRenderer.invoke('save-product', productForm);
       await refreshProducts();
-      setProductForm({ id: null, name: '', default_rate: 0 });
+      setProductForm({ id: null, size: '', name: '' });
       showAlert('Product saved successfully!', 'success');
     } catch (err) {
       showAlert('Failed to save product: ' + err.message, 'error');
@@ -235,8 +236,22 @@ export default function Settings() {
                     <input type="text" value={currentCompany.name || ''} onChange={e => updateCompanySetting(settings.activeCompany, 'name', e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-m3-surface-container-highest border border-gray-200 dark:border-m3-outline rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-semibold text-gray-800 dark:text-white" placeholder="DHANALAKSHMI TEXTILES" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">GSTIN Number</label>
-                    <input type="text" value={currentCompany.gst || ''} onChange={e => updateCompanySetting(settings.activeCompany, 'gst', e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-m3-surface-container-highest border border-gray-200 dark:border-m3-outline rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-800 dark:text-white font-mono uppercase" placeholder="33AXH..." />
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide">GSTIN Number</label>
+                      <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={currentCompany.withoutGst || false} 
+                          onChange={e => {
+                            updateCompanySetting(settings.activeCompany, 'withoutGst', e.target.checked);
+                            if (e.target.checked) updateCompanySetting(settings.activeCompany, 'gst', '');
+                          }}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        Without GST
+                      </label>
+                    </div>
+                    <input type="text" value={currentCompany.gst || ''} disabled={currentCompany.withoutGst} onChange={e => updateCompanySetting(settings.activeCompany, 'gst', e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-m3-surface-container-highest border border-gray-200 dark:border-m3-outline rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-800 dark:text-white font-mono uppercase disabled:opacity-50 disabled:cursor-not-allowed" placeholder="33AXH..." />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Contact Phone Number</label>
@@ -299,6 +314,31 @@ export default function Settings() {
 
                 <div className="bg-gray-50 dark:bg-m3-surface-container-highest p-5 border border-gray-100 dark:border-m3-outline rounded-xl flex items-center justify-between transition-shadow hover:shadow-md">
                   <div>
+                    <h3 className="font-bold text-gray-800 dark:text-white">Active Financial Year</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Default FY for new invoices.</p>
+                  </div>
+                  <div className="flex flex-col relative w-48">
+                    <input 
+                      type="text"
+                      list="settings-fy-list"
+                      value={settings.financialYear || ''} 
+                      onChange={(e) => setSettings({...settings, financialYear: e.target.value})}
+                      placeholder="Auto (Current)"
+                      className="w-full p-2.5 bg-white dark:bg-m3-surface border border-gray-300 dark:border-m3-outline rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium dark:text-white"
+                    />
+                    <datalist id="settings-fy-list">
+                      <option value="2023-2024" />
+                      <option value="2024-2025" />
+                      <option value="2025-2026" />
+                      <option value="2026-2027" />
+                      <option value="2027-2028" />
+                      <option value="2028-2029" />
+                    </datalist>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-m3-surface-container-highest p-5 border border-gray-100 dark:border-m3-outline rounded-xl flex items-center justify-between transition-shadow hover:shadow-md">
+                  <div>
                     <h3 className="font-bold text-gray-800 dark:text-white">Date Display Format</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Global date preference.</p>
                   </div>
@@ -343,19 +383,19 @@ export default function Settings() {
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Manage standardized product names and default rates. These will appear in the autocomplete when billing.</p>
 
               <form onSubmit={handleSaveProduct} className="bg-gray-50 dark:bg-m3-surface-container-highest p-5 rounded-xl border border-gray-100 dark:border-m3-outline flex flex-col md:flex-row gap-4 items-end shadow-sm">
+                <div className="w-full md:w-32">
+                  <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Size</label>
+                  <input type="text" value={productForm.size || ''} onChange={e => setProductForm({...productForm, size: e.target.value})} className="w-full p-3 bg-white dark:bg-m3-surface border border-gray-200 dark:border-m3-outline rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-800 dark:text-white font-medium" placeholder="Ex: L, XL, 40s" />
+                </div>
                 <div className="flex-1 w-full">
                   <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Product Name</label>
-                  <input type="text" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} className="w-full p-3 bg-white dark:bg-m3-surface border border-gray-200 dark:border-m3-outline rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-800 dark:text-white font-medium" placeholder="Ex: Cotton Yarn 40s" required />
-                </div>
-                <div className="w-full md:w-48">
-                  <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Default Rate (₹)</label>
-                  <input type="number" step="0.01" value={productForm.default_rate} onChange={e => setProductForm({...productForm, default_rate: e.target.value})} className="w-full p-3 bg-white dark:bg-m3-surface border border-gray-200 dark:border-m3-outline rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-800 dark:text-white font-mono" placeholder="0.00" />
+                  <input type="text" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} className="w-full p-3 bg-white dark:bg-m3-surface border border-gray-200 dark:border-m3-outline rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-800 dark:text-white font-medium" placeholder="Ex: Cotton Yarn" required />
                 </div>
                 <button type="submit" className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold transition-colors shadow-sm">
                   {productForm.id ? 'Update Product' : 'Add Product'}
                 </button>
                 {productForm.id && (
-                  <button type="button" onClick={() => setProductForm({ id: null, name: '', default_rate: 0 })} className="w-full md:w-auto bg-gray-200 hover:bg-gray-300 dark:bg-m3-surface-container dark:hover:bg-m3-outline text-gray-700 dark:text-gray-200 px-4 py-3 rounded-lg font-bold transition-colors">
+                  <button type="button" onClick={() => setProductForm({ id: null, size: '', name: '' })} className="w-full md:w-auto bg-gray-200 hover:bg-gray-300 dark:bg-m3-surface-container dark:hover:bg-m3-outline text-gray-700 dark:text-gray-200 px-4 py-3 rounded-lg font-bold transition-colors">
                     Cancel
                   </button>
                 )}
@@ -366,16 +406,16 @@ export default function Settings() {
                   <table className="w-full text-left bg-white dark:bg-m3-surface">
                     <thead className="bg-gray-50 dark:bg-m3-surface-container border-b border-gray-200 dark:border-m3-outline sticky top-0">
                       <tr>
+                        <th className="px-5 py-3 text-sm font-bold text-gray-600 dark:text-gray-300 w-32">Size</th>
                         <th className="px-5 py-3 text-sm font-bold text-gray-600 dark:text-gray-300">Product Name</th>
-                        <th className="px-5 py-3 text-sm font-bold text-gray-600 dark:text-gray-300 w-32">Default Rate</th>
                         <th className="px-5 py-3 text-sm font-bold text-gray-600 dark:text-gray-300 w-24 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-m3-outline-variant">
                       {products.map((p) => (
                         <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-m3-surface-container-highest transition-colors">
+                          <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-200">{p.size || '-'}</td>
                           <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-200">{p.name}</td>
-                          <td className="px-5 py-3 font-mono text-gray-600 dark:text-gray-400">₹ {Number(p.default_rate || 0).toFixed(2)}</td>
                           <td className="px-5 py-3 text-right">
                             <button onClick={() => setProductForm(p)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium mr-3 transition-colors">Edit</button>
                             <button onClick={() => handleDeleteProduct(p.id)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium transition-colors">Delete</button>
@@ -453,6 +493,42 @@ export default function Settings() {
 
           {activeTab === 'data' && (
             <div className="space-y-6 animate-in fade-in duration-300">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-white pb-2 border-b border-gray-100 dark:border-m3-outline mb-6">Storage Preferences</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+                <div className="bg-gray-50 dark:bg-m3-surface-container-highest p-5 border border-gray-100 dark:border-m3-outline rounded-xl">
+                  <h3 className="font-bold text-gray-800 dark:text-white mb-2">PDF Store Location</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Select the folder where Bills, Transport Copies, and Statements are saved.</p>
+                  <div className="flex gap-2">
+                    <input type="text" readOnly value={settings.pdfStoreLocation || ''} placeholder="Default (Documents Folder)" className="flex-1 p-2.5 bg-white dark:bg-m3-surface border border-gray-300 dark:border-m3-outline rounded-lg text-sm text-gray-600 dark:text-gray-300 focus:outline-none" />
+                    <button onClick={async () => {
+                      if (window.electron?.ipcRenderer) {
+                        const path = await window.electron.ipcRenderer.invoke('select-directory', settings.pdfStoreLocation);
+                        if (path) setSettings({ ...settings, pdfStoreLocation: path });
+                      }
+                    }} className="bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-m3-outline/30 dark:hover:bg-m3-outline/50 dark:text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap">
+                      Browse...
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-m3-surface-container-highest p-5 border border-gray-100 dark:border-m3-outline rounded-xl">
+                  <h3 className="font-bold text-gray-800 dark:text-white mb-2">Backup Location</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Select the default folder for database backups.</p>
+                  <div className="flex gap-2">
+                    <input type="text" readOnly value={settings.backupLocation || ''} placeholder="Default" className="flex-1 p-2.5 bg-white dark:bg-m3-surface border border-gray-300 dark:border-m3-outline rounded-lg text-sm text-gray-600 dark:text-gray-300 focus:outline-none" />
+                    <button onClick={async () => {
+                      if (window.electron?.ipcRenderer) {
+                        const path = await window.electron.ipcRenderer.invoke('select-directory', settings.backupLocation);
+                        if (path) setSettings({ ...settings, backupLocation: path });
+                      }
+                    }} className="bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-m3-outline/30 dark:hover:bg-m3-outline/50 dark:text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap">
+                      Browse...
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <h2 className="text-xl font-bold text-gray-800 dark:text-white pb-2">Business Continuity</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
