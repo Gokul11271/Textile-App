@@ -113,6 +113,16 @@ function setupIpcHandlers() {
     }
   });
 
+  ipcMain.handle('get-printers', async (event) => {
+    try {
+      const printers = await event.sender.getPrintersAsync();
+      return printers;
+    } catch (e) {
+      console.error('Error getting printers:', e);
+      return [];
+    }
+  });
+
   ipcMain.handle('backup-database', async () => {
     const { dialog } = require('electron');
     const settings = await getSettingsObj();

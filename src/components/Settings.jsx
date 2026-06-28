@@ -9,6 +9,7 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState('company');
   const [productForm, setProductForm] = useState({ id: null, size: '', name: '' });
   const [selectedProductIds, setSelectedProductIds] = useState([]);
+  const [printers, setPrinters] = useState([]);
   const [settings, setSettings] = useState({
     activeCompany: 'company1',
     company1: {
@@ -48,7 +49,23 @@ export default function Settings() {
 
   useEffect(() => {
     if (globalSettings && Object.keys(globalSettings).length > 0) {
-      setSettings(prev => ({ ...prev, ...globalSettings }));
+      const merged = { ...settings, ...globalSettings };
+      if (globalSettings.financialYear) {
+        merged.financialYear = globalSettings.financialYear;
+      }
+      if (globalSettings.defaultPrinter !== undefined) {
+        merged.defaultPrinter = globalSettings.defaultPrinter;
+      }
+      setSettings(merged);
+    }
+    
+    // Fetch available printers
+    if (window.electron && window.electron.ipcRenderer) {
+      window.electron.ipcRenderer.invoke('get-printers')
+        .then(p => {
+          if (p && Array.isArray(p)) setPrinters(p);
+        })
+        .catch(console.error);
     }
   }, [globalSettings]);
 
@@ -389,6 +406,23 @@ export default function Settings() {
                     <input type="checkbox" checked={settings.showBankOnTransport} onChange={e => setSettings({...settings, showBankOnTransport: e.target.checked})} className="sr-only peer" />
                     <div className="w-14 h-7 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
                   </label>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-m3-surface-container-highest p-5 border border-gray-100 dark:border-m3-outline rounded-xl flex items-center justify-between transition-shadow hover:shadow-md">
+                  <div>
+                    <h3 className="font-bold text-gray-800 dark:text-white">Default Printer</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Select the printer for invoices.</p>
+                  </div>
+                  <select 
+                    value={settings.defaultPrinter || ''} 
+                    onChange={(e) => setSettings({...settings, defaultPrinter: e.target.value})}
+                    className="p-2.5 bg-white dark:bg-m3-surface border border-gray-300 dark:border-m3-outline rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium dark:text-white w-48"
+                  >
+                    <option value="">System Default</option>
+                    {printers.map((p, i) => (
+                      <option key={i} value={p.name}>{p.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>

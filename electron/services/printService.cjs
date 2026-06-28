@@ -370,7 +370,7 @@ const printBillDirect = async (bill, items, type = 'big', copies = 1) => {
       await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
       const result = await new Promise((resolve) => {
-        const printOptions = { silent: true, printBackground: true, deviceName: '', copies };
+        const printOptions = { silent: true, printBackground: true, deviceName: settings.defaultPrinter || '', copies };
         if (type === 'transport') {
           printOptions.landscape = true;
           printOptions.copies = 1; // Both copies are rendered on the same page
