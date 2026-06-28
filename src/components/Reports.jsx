@@ -8,7 +8,8 @@ import {
   TrendingUp, 
   CreditCard,
   Printer,
-  Trash2
+  Trash2,
+  Save
 } from 'lucide-react';
 
 function useDebounce(value, delay) {
@@ -194,6 +195,29 @@ export function Reports({ theme }) {
     }
   };
 
+  const handleBatchUpdateLrOnly = async () => {
+    if (!batchStart || !batchEnd || !batchLr) {
+      showAlert('Please enter Start Bill No, End Bill No, and Starting LR Number', 'warning');
+      return;
+    }
+    setPrinting(true);
+    try {
+      const updateResult = await window.electron.ipcRenderer.invoke('update-lr-numbers', batchStart, batchEnd, batchLr);
+      if (updateResult.success) {
+        showAlert(`Successfully updated LR for ${updateResult.count} bills.`, 'success');
+        // Update local state without full refetch if possible, or just refetch
+        handleFilter(true); 
+      } else {
+        showAlert(updateResult.message || updateResult.error || 'Failed to update LR numbers', 'error');
+      }
+    } catch (error) {
+      console.error('Batch LR update failed:', error);
+      showAlert('Batch LR update failed. Check console for details.', 'error');
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   const totals = React.useMemo(() => {
     return filteredBills.reduce((acc, b) => {
       const taxableValue = (b.total_amount || 0) - (b.tax_amount || 0);
@@ -312,16 +336,28 @@ export function Reports({ theme }) {
               </button>
             </div>
             
-            <button
-              onClick={handleBatchUpdateLrAndPrint}
-              disabled={printing || !batchStart || !batchEnd || !batchLr}
-              className={`w-full flex items-center justify-center gap-2 px-5 py-2.5 mt-2 rounded-full m3-label-large transition-all ${
-                printing || !batchStart || !batchEnd || !batchLr ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98] hover:shadow-m3-1'
-              } bg-m3-primary text-m3-on-primary`}
-            >
-              <FileText size={16} />
-              {printing ? 'Processing...' : `Assign LR & Print Big Bills (${printCopies.big} copies)`}
-            </button>
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={handleBatchUpdateLrOnly}
+                disabled={printing || !batchStart || !batchEnd || !batchLr}
+                className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-full m3-label-large transition-all ${
+                  printing || !batchStart || !batchEnd || !batchLr ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98] hover:shadow-m3-1 hover:bg-m3-surface-container-high'
+                } bg-m3-surface-container-highest text-m3-on-surface border border-m3-outline-variant/30`}
+              >
+                <Save size={16} />
+                Save LR Only
+              </button>
+              <button
+                onClick={handleBatchUpdateLrAndPrint}
+                disabled={printing || !batchStart || !batchEnd || !batchLr}
+                className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-full m3-label-large transition-all ${
+                  printing || !batchStart || !batchEnd || !batchLr ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98] hover:shadow-m3-1'
+                } bg-m3-primary text-m3-on-primary`}
+              >
+                <FileText size={16} />
+                {printing ? 'Processing...' : `Assign & Print Big (${printCopies.big})`}
+              </button>
+            </div>
           </div>
         </div>
       </div>
