@@ -96,7 +96,7 @@ const buildPdfFilename = async (bill, type = 'big') => {
 
 // ─── Template Data Builder ────────────────────────────────────────────────────
 
-const buildTemplateVars = (bill, items, type, settings) => {
+const buildTemplateVars = async (bill, items, type, settings) => {
   const activeCompanyId = settings.activeCompany || 'company1';
   const company = settings[activeCompanyId] || {
     name: 'DHANALAKSHMI TEXTILES',
@@ -131,6 +131,14 @@ const buildTemplateVars = (bill, items, type, settings) => {
     baleNumbers: bill.baleNumbers  || bill.bale_numbers || '[]',
     financialYear: bill.financialYear || ''
   };
+
+  let agentName = '';
+  if (b.agentId) {
+    const agent = await dbGet('SELECT name FROM agents WHERE id = ?', [b.agentId]);
+    if (agent && agent.name) {
+      agentName = agent.name;
+    }
+  }
 
   const isLocal        = !b.isInterState;
   const taxRate        = b.taxRate;
@@ -254,7 +262,8 @@ const buildTemplateVars = (bill, items, type, settings) => {
     BILL_NUMBER:         b.billNumber.replace(/^[^\d]*/, ''),
     FINANCIAL_YEAR_LABEL,
     DATE:                b.date,
-    AGENT_TYPE:          b.agentId ? 'COMMISSION' : 'DIRECT',
+    AGENT_TYPE:          agentName || 'DIRECT',
+    AGENT_NAME:          agentName || 'DIRECT',
     PARTY_NAME:          b.partyName,
     PARTY_ADDRESS:       b.partyAddress,
     PARTY_GST_ROW:       type === 'big' ? PARTY_GST_ROW : PARTY_GST_ROW_HIGHLIGHT,
@@ -280,8 +289,8 @@ const buildTemplateVars = (bill, items, type, settings) => {
 
 // ─── Public: HTML Generator ───────────────────────────────────────────────────
 
-const getBillHtml = (bill, items, type = 'big', settings = {}, copiesCount = 2) => {
-  const vars = buildTemplateVars(bill, items, type, settings);
+const getBillHtml = async (bill, items, type = 'big', settings = {}, copiesCount = 2) => {
+  const vars = await buildTemplateVars(bill, items, type, settings);
   clearCache(); // Force reload template without app restart during dev
   
   if (type === 'transport') {
@@ -334,7 +343,7 @@ const generateBillPdf = async (bill, items, type = 'big', copiesCount = 2) => {
     try {
       const win      = getPrintWindow();
       const settings = await getSettingsObj();
-      const html     = getBillHtml(bill, items, type, settings, copiesCount);
+      const html     = await getBillHtml(bill, items, type, settings, copiesCount);
 
       await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
@@ -365,7 +374,7 @@ const printBillDirect = async (bill, items, type = 'big', copies = 1) => {
     try {
       const win      = getPrintWindow();
       const settings = await getSettingsObj();
-      const html     = getBillHtml(bill, items, type, settings, copies);
+      const html     = await getBillHtml(bill, items, type, settings, copies);
 
       await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 

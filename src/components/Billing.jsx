@@ -628,6 +628,31 @@ export function Billing() {
     });
   };
 
+  const handleSavePrintAndPrev = async () => {
+    try {
+      const saved = await handleSave(true, false);
+      if (!saved) return;
+
+      const count = printCopies.big || 1;
+      if (count > 0) {
+        window.electron.ipcRenderer.invoke('generate-pdf', billData, items, 'big', count).catch(console.error);
+        window.electron.ipcRenderer.invoke('print-bill', billData, items, 'big', count).catch(console.error);
+      }
+
+      if (billData.billNumber && !isNaN(billData.billNumber)) {
+        const prevNo = parseInt(billData.billNumber) - 1;
+        if (prevNo > 0) {
+          loadBillByNumber(prevNo.toString());
+        } else {
+          showAlert('Saved & printed, but no previous bill exists.', 'warning');
+        }
+      }
+    } catch (error) {
+      console.error(error);
+      showAlert('❌ Error in Save, Print & Prev: ' + (error.message || 'Unknown error'), 'error');
+    }
+  };
+
   const inputBase = "w-full rounded-md px-3 py-2 m3-body-medium bg-m3-surface-container-highest border border-m3-outline-variant text-m3-on-surface placeholder:text-m3-on-surface-variant/50 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary/30 transition-all duration-200";
   const labelBase = "m3-label-medium text-m3-on-surface-variant mb-1 block";
 
@@ -710,6 +735,12 @@ export function Billing() {
           <button onClick={() => handleSave()} className="flex items-center gap-1.5 px-4 py-2.5 rounded-full m3-label-large bg-m3-secondary-container text-m3-on-secondary-container hover:shadow-m3-1 transition-all">
             <Save size={16} />
             <span>Save</span>
+          </button>
+
+          {/* Save, Print & Prev Button */}
+          <button onClick={handleSavePrintAndPrev} className="flex items-center gap-1.5 px-4 py-2.5 rounded-full m3-label-large bg-m3-surface-container-highest text-m3-on-surface-variant hover:shadow-m3-1 transition-all">
+            <ChevronLeft size={16} />
+            <span>Save, Print & Prev</span>
           </button>
 
           <button onClick={handleUpNext} className="flex items-center gap-1 px-4 py-2.5 rounded-full m3-label-large bg-m3-tertiary-container text-m3-on-tertiary-container hover:shadow-m3-1 transition-all">

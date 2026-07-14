@@ -75,7 +75,7 @@ function setupIpcHandlers() {
 
   ipcMain.handle('get-bill-preview', async (event, bill, items, type = 'big', copiesCount = 2) => {
     const settings = await getSettingsObj();
-    return getBillHtml(bill, items, type, settings, copiesCount);
+    return await getBillHtml(bill, items, type, settings, copiesCount);
   });
 
   // Directory Selection
