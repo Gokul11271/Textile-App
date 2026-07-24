@@ -358,6 +358,7 @@ export function Billing() {
       setBillData(prev => ({
         ...prev,
         billNumber: oldBill.bill_number ? oldBill.bill_number.toString() : billNoStr,
+        date: oldBill.date ? formatDate(oldBill.date) : formatDate(new Date()),
         agentId: oldBill.agent_id,
         partyId: oldBill.party_id,
         discountPercent: oldBill.discount_percent || 0,
