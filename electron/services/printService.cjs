@@ -275,10 +275,10 @@ const buildTemplateVars = async (bill, items, type, settings) => {
     SUBTOTAL:            subtotal.toFixed(2),
     DISCOUNT_ROW,
     TAX_ROWS:            type === 'big' ? TAX_ROWS_BIG : TAX_ROWS_TRANSPORT,
-    AMOUNT_WORDS:        type === 'big' ? numberToWords(b.totalAmount) : numberToWords(transportTotal),
+    AMOUNT_WORDS:        type === 'big' ? numberToWords(Math.round(b.totalAmount)) : numberToWords(Math.round(transportTotal)),
     TOTAL_AMOUNT:        type === 'big'
-      ? b.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })
-      : transportTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+      ? Math.round(b.totalAmount).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+      : Math.round(transportTotal).toLocaleString('en-IN', { maximumFractionDigits: 0 }),
     LORRY:               b.lorryOffice || 'Local',
     LR_NO:               b.lrNumber   || 'N/A',
     BALE_GRID,

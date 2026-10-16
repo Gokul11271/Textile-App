@@ -9,6 +9,7 @@ const Parties = () => {
   const [formData, setFormData] = useState({
     id: null,
     customer_id: '',
+    customer_name: '',
     isNewCustomer: false,
     newCustomerName: '',
     short_name: '',
@@ -56,8 +57,22 @@ const Parties = () => {
     setError('');
     setSuccess('');
 
-    if ((formData.isNewCustomer && !formData.newCustomerName) || (!formData.isNewCustomer && !formData.customer_id)) {
-      const msg = 'Please select or enter a Customer name.';
+    if (formData.isNewCustomer && !formData.newCustomerName.trim()) {
+      const msg = 'Please enter a New Customer Legal Name.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    if (!formData.isNewCustomer && !formData.customer_id) {
+      const msg = 'Please select a Customer.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    if (!formData.isNewCustomer && (!formData.customer_name || !formData.customer_name.trim())) {
+      const msg = 'Legal Customer Name cannot be empty.';
       setError(msg);
       toast.error(msg);
       return;
@@ -82,8 +97,15 @@ const Parties = () => {
       let currentCustomerId = formData.customer_id;
 
       if (formData.isNewCustomer) {
-        const result = await window.electron.ipcRenderer.invoke('save-customer', { name: formData.newCustomerName });
+        const result = await window.electron.ipcRenderer.invoke('save-customer', { name: formData.newCustomerName.trim() });
         currentCustomerId = result.lastID;
+        await fetchCustomers();
+      } else if (currentCustomerId && formData.customer_name && formData.customer_name.trim()) {
+        // Update the customer's legal name in the database
+        await window.electron.ipcRenderer.invoke('save-customer', { 
+          id: currentCustomerId, 
+          name: formData.customer_name.trim() 
+        });
         await fetchCustomers();
       }
 
@@ -120,6 +142,7 @@ const Parties = () => {
     setFormData({
       id: null,
       customer_id: '',
+      customer_name: '',
       isNewCustomer: false,
       newCustomerName: '',
       short_name: '',
@@ -138,9 +161,13 @@ const Parties = () => {
   };
 
   const handleEdit = async (party) => {
+    const cust = customers.find(c => String(c.id) === String(party.customer_id));
+    const legalName = cust ? cust.name : (party.name || '');
+
     setFormData({
       id: party.id,
       customer_id: party.customer_id,
+      customer_name: legalName,
       isNewCustomer: false,
       newCustomerName: '',
       short_name: party.short_name,
@@ -233,7 +260,7 @@ const Parties = () => {
             </div>
             
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Customer Selection */}
+              {/* Customer Selection & Details */}
               <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className={labelBase}>
@@ -243,7 +270,15 @@ const Parties = () => {
                     <select
                       disabled={formData.isNewCustomer}
                       value={formData.customer_id}
-                      onChange={(e) => setFormData(prev => ({ ...prev, customer_id: e.target.value }))}
+                      onChange={(e) => {
+                        const selId = e.target.value;
+                        const selCust = customers.find(c => String(c.id) === String(selId));
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          customer_id: selId,
+                          customer_name: selCust ? selCust.name : ''
+                        }));
+                      }}
                       className={`${inputBase} cursor-pointer disabled:opacity-50`}
                     >
                       <option value="">Choose Existing Customer...</option>
@@ -279,19 +314,35 @@ const Parties = () => {
                 ) : (
                   <div>
                     <label className={labelBase}>
-                      Short Name (Unique Selection Name) <span className="text-m3-error">*</span>
+                      Legal Customer Name <span className="text-m3-error">*</span>
                     </label>
                     <input
                       type="text"
-                      name="short_name"
-                      value={formData.short_name}
+                      name="customer_name"
+                      value={formData.customer_name || ''}
                       onChange={handleInputChange}
                       className={inputBase}
-                      placeholder="Ex: Bhaniram (Raipur)"
+                      placeholder="Customer Legal Name (e.g. Gokul Textiles)"
                     />
                   </div>
                 )}
               </div>
+
+              {!formData.isNewCustomer && (
+                <div className="md:col-span-2">
+                  <label className={labelBase}>
+                    Short Name (Unique Selection Name) <span className="text-m3-error">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="short_name"
+                    value={formData.short_name}
+                    onChange={handleInputChange}
+                    className={inputBase}
+                    placeholder="Ex: Bhaniram (Raipur)"
+                  />
+                </div>
+              )}
 
               {formData.isNewCustomer && (
                 <div className="md:col-span-2 animate-in slide-in-from-top-2 duration-300">

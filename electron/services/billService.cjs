@@ -30,7 +30,7 @@ const saveBill = async (bill, items) => {
     }
     const netAmount = subtotal - discountAmount;
     const taxAmount = (netAmount * (validBill.taxRate || 5)) / 100;
-    const totalAmount = netAmount + taxAmount;
+    const totalAmount = Math.round(netAmount + taxAmount);
 
     await dbRun('BEGIN TRANSACTION');
 

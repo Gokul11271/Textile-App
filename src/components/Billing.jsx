@@ -197,7 +197,7 @@ export function Billing() {
 
     const netAmount = subtotal - discountAmt
     const taxAmt = (netAmount * (currentBillData.taxRate || 0)) / 100
-    const finalTotal = netAmount + taxAmt
+    const finalTotal = Math.round(netAmount + taxAmt)
 
     let cgstAmt = 0
     let sgstAmt = 0
@@ -1183,7 +1183,7 @@ export function Billing() {
             <div className="pt-3 border-t border-m3-outline-variant flex justify-between items-baseline">
               <div className="flex flex-col">
                 <span className="m3-label-small text-m3-on-surface-variant tracking-wider">Total Payable</span>
-                <span className="m3-headline-small font-display font-medium font-mono text-m3-on-surface mt-1">₹{billData.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                <span className="m3-headline-small font-display font-medium font-mono text-m3-on-surface mt-1">₹{Math.round(billData.totalAmount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
               </div>
               <span className="m3-label-small text-m3-on-surface-variant">
                 {billData.isInterState ? 'IGST Applied' : 'CGST + SGST Applied'}
